@@ -3,11 +3,13 @@
 //
 #pragma once
 
-extern Adafruit_MPU6050 sensor_imu;
+#include "BasicLinearAlgebra.h"
+
+using namespace BLA;
 
 /// \brief sets up rot matrices as identity matrices
 ///
-void init_linalg_core();
+void linalg_core_init();
 
 /// \brief calibrates the device frame and creates rotation matrix to display sensor data
 ///        in device coordinates.
@@ -23,7 +25,7 @@ void calibrate_ship();
 /// \param sensor_data array with raw acceleration sensor data in m/s
 /// \param return_buffer array with tilt angles in X and Y
 ///
-void calculate_tiltangle_x_y(float* sensor_data, float* return_buffer);
+void calculate_tiltangle_x_y(Matrix<3> data_vector, float* return_buffer, int mode);
 
 /// \brief returns calibration state
 /// \return 0 - calibrated, 1 - ship frame not calbrated, 2 - no calibration
