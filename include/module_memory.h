@@ -5,6 +5,7 @@
 #pragma once
 
 #define MODULE_MEMORY_INIT_TIMER_MAX            100
+
 typedef enum{
     MODULE_MEMORY_ERROR_NO_ERROR        = 0x00,
     MODULE_MEMORY_ERROR_READ_R_0_1      = 0x01,
@@ -27,8 +28,7 @@ MODULE_MEMORY_ERROR_t module_memory_init();
 /// \param user_buffer byte vector of data
 /// \param rot_mat_index enum of which rotation matrix to save to.
 /// \param user_size size of data vector in bytes
-/// \return Returns init-error if storage cannot be opened. returns write error if at least one
-///         matrix cannot be read.
+/// \return returns write error if at least one matrix cannot be read.
 MODULE_MEMORY_ERROR_t module_memory_set_calibration(uint8_t* user_buffer, uint8_t rot_mat_index, uint8_t user_size);
 
 /// \brief Reads calibration data in form of rotation matrices from esp32 storage.
@@ -40,6 +40,6 @@ MODULE_MEMORY_ERROR_t module_memory_set_calibration(uint8_t* user_buffer, uint8_
 ///         to be re-calibrated anyway.
 MODULE_MEMORY_ERROR_t module_memory_get_calibration(uint8_t* user_buffer_R_0_1, uint8_t* rot_mat_index_R_1_2, uint8_t user_size);
 
-/// \brief erases entire nvs flash and reintializing it
+/// \brief erases entire nvs flash and reinitializing it
 /// \return memory module error
 MODULE_MEMORY_ERROR_t module_memory_erase_namespace();
