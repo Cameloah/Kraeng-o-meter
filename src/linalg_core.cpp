@@ -4,9 +4,12 @@
 
 #include <Arduino.h>
 #include <Wire.h>
+#include "BasicLinearAlgebra.h"
+#include <cmath>
 
 #include "../include/linalg_core.h"
 #include "../include/device_manager.h"
+#include "../include/module_memory.h"
 
 
 bool flag_device_calibration_state = false;
@@ -15,32 +18,23 @@ bool flag_ship_calibration_state = false;
 Matrix<3, 3> rot_mat_0_1;   // define rot mat to device coordinates
 Matrix<3, 3> rot_mat_1_2;   // define rot mat to ship coordinates
 
-void _serial_flush() {
-    byte w = 0;
-
-    for (int i = 0; i < 10; i++)
-    {
-        while (Serial.available() > 0)
-        {
-            char k = Serial.read();
-            w++;
-            delay(1);
-        }
-        delay(1);
-    }
+void serial_flush_() {
+    String k = Serial.readString();
 }
 
-float _length(Matrix<3> vector) {
-    return sqrt(vector(0) * vector(0) + vector(1) * vector(1) + vector (2) * vector(2));
+float length_(Matrix<3> vector) {
+    return std::sqrt(vector(0) * vector(0)
+                     + vector(1) * vector(1)
+                     + vector(2) * vector(2));
 }
 
-Matrix<3> _normalize(Matrix<3> vector) {
-    float length = _length(vector);
+Matrix<3> normalize_(Matrix<3> vector) {
+    float length = length_(vector);
     Matrix<3> unit_vector = {vector(0) / length, vector(1) / length, vector(2) / length};
     return unit_vector;
 }
 
-Matrix<3> _cross(Matrix<3> a, Matrix<3> b) {
+Matrix<3> cross_(Matrix<3> a, Matrix<3> b) {
     Matrix<3> result = {(a(1) * b(2)) - (a(2) * b(1)),
                             (a(2) * b(0)) - (a(0) * b(2)),
                             (a(0) * b(1)) - (a(1) * b(0))}; // calculate cross product
@@ -56,6 +50,27 @@ void linalg_core_init() {
     for (int i = 0; i < 3; i++) {
         rot_mat_0_1(i, i) = 1;
         rot_mat_1_2(i, i) = 1;
+    }
+
+    // check for existing calibration data
+    switch(module_memory_get_calibration((uint8_t*) &rot_mat_0_1, (uint8_t*) &rot_mat_1_2, sizeof (rot_mat_0_1))) {
+        case MODULE_MEMORY_ERROR_READ_R_0_1:
+            Serial.println("Keine Gehäusekalibrierung gefunden.");
+
+        case MODULE_MEMORY_ERROR_READ_R_1_2:
+            // R_0_1 was read successfully therefore set flag accordingly
+            flag_device_calibration_state = true;
+            Serial.println("Keine Schiffskalibrierung gefunden.");
+            break;
+
+        case MODULE_MEMORY_ERROR_NO_ERROR:
+            Serial.println("Kalibrierung aus Speicher geladen.");
+            flag_device_calibration_state = true;
+            flag_ship_calibration_state = true;
+            break;
+
+        default:
+            Serial.println("Unbekannter Speicherfehler.");
     }
 }
 
@@ -73,33 +88,37 @@ void calibrate_device() {
     Serial.println("Gehäuse-Kalibrierung");
     Serial.println("Stellen sie das Gehaeuse hochkant auf den Tisch, die Anzeige zeigt nach oben.");
     Serial.println("Bestätigen Sie mit beliebiger Konsoleneingabe.");
-
     while(!Serial.available()) {}   // wait for any user input
-    _serial_flush();
+    serial_flush_();
 
     Matrix<3> e_z_device = device_manager_get_accel_median(); // measure g-vector
-    e_z_device = _normalize(e_z_device); // normalize
+    e_z_device = normalize_(e_z_device); // normalize
     e_z_device *= -1;   // flip
     Serial << "e_z_device: " << e_z_device << '\n';
 
     Serial.println("Kippen Sie das Gehaeuse 90° zu sich, die Anzeige zeigt nach vorn und liegt gerade.");
     Serial.println("Bestätigen Sie mit beliebiger Konsoleneingabe.");
-
     while(!Serial.available()) {}   // wait for any user input
-    _serial_flush();
+    serial_flush_();
 
     Matrix<3> e_y_device =  device_manager_get_accel_median(); // measure g-vector
-    e_y_device = _normalize(e_y_device); // normalize
+    e_y_device = normalize_(e_y_device); // normalize
     e_y_device *= -1;   // flip
 
-    Matrix<3> e_x_device = _cross(e_y_device, e_z_device); // calculate cross product
-    e_x_device = _normalize(e_x_device); // normalize
+    Matrix<3> e_x_device = cross_(e_y_device, e_z_device); // calculate cross product
+    e_x_device = normalize_(e_x_device); // normalize
 
-    e_y_device = _cross(e_z_device, e_x_device); // calculate cross product
+    e_y_device = cross_(e_z_device, e_x_device); // calculate cross product
 
     Matrix<3, 3> rot_mat_1_0 = e_x_device || e_y_device || e_z_device;
     rot_mat_0_1 = ~rot_mat_1_0; // transpose mat
-    Serial << "rot_mat_1_0: " << rot_mat_1_0 << '\n';
+    // save rot mat to filesystem
+    if(module_memory_set_calibration((uint8_t*) &rot_mat_0_1, ROT_MAT_0_1, sizeof (rot_mat_0_1))
+        == MODULE_MEMORY_ERROR_NO_ERROR)
+        Serial.println("Kalibrierung wurde gespeichert.");
+    else
+        Serial.println("Fehler beim Speichern. Bei Neustart ist Re-Kalibrierung nötig!");
+
     // all good so set flag high
     flag_device_calibration_state = true;
 }
@@ -120,22 +139,27 @@ void calibrate_ship() {
     Serial.println("Bestaetigen Sie mit beliebiger Konsoleneingabe.");
 
     while(!Serial.available()) {}   // wait for any user input
-    _serial_flush();
+    serial_flush_();
 
     Matrix<3> e_z_ship = device_manager_get_accel_median();// measure g-vector
-    e_z_ship = _normalize(e_z_ship); // normalize
+    e_z_ship = normalize_(e_z_ship); // normalize
     e_z_ship *= -1;   // flip
     e_z_ship = rot_mat_0_1 * e_z_ship; // rotate to device frame
 
-    Matrix<3> e_y_ship = _cross(e_z_ship, e_x); // calculate cross product
-              e_y_ship = _normalize(e_y_ship); // normalize
+    Matrix<3> e_y_ship = cross_(e_z_ship, e_x); // calculate cross product
+              e_y_ship = normalize_(e_y_ship); // normalize
 
-    Matrix<3> e_x_ship = _cross(e_y_ship, e_z_ship); // calculate cross product
+    Matrix<3> e_x_ship = cross_(e_y_ship, e_z_ship); // calculate cross product
 
     Matrix<3, 3> rot_mat_2_1 = e_x_ship || e_y_ship || e_z_ship;
     rot_mat_1_2 = ~rot_mat_2_1; // transpose mat
+    // save rot mat to filesystem
+    if(module_memory_set_calibration((uint8_t*) &rot_mat_1_2, ROT_MAT_1_2, sizeof (rot_mat_1_2))
+        == MODULE_MEMORY_ERROR_NO_ERROR)
+        Serial.println("Kalibrierung wurde gespeichert.");
+    else
+        Serial.println("Fehler beim Speichern. Bei Neustart ist Re-Kalibrierung nötig!");
 
-    Serial << "rot_mat_2_1: " << rot_mat_2_1 << '\n';
     // all good so set flag high
     flag_ship_calibration_state = true;
 }

@@ -7,6 +7,7 @@
 
 using namespace BLA;
 
+
 /// \brief sets up rot matrices as identity matrices
 ///
 void linalg_core_init();

@@ -97,20 +97,20 @@ Matrix<3> device_manager_get_accel_median() {
     }
 
     // sort elements
-    float temporary = 0;
-    for (int k = 0; k < 3; ++k) {
+    float temporary;
+    for (auto & k : sensor_data) {
         for (int i = 0; i < FILTER_MEDIAN_SIZE; i++) {
             for (int j = i+1; j < FILTER_MEDIAN_SIZE; j++) {
-                if(sensor_data[k][i] > sensor_data[k][j]) {
-                    temporary = sensor_data[k][i];
-                    sensor_data[k][i] = sensor_data[k][j];
-                    sensor_data[k][j] = temporary;
+                if(k[i] > k[j]) {
+                    temporary = k[i];
+                    k[i] = k[j];
+                    k[j] = temporary;
                 }
             }
         }
     }
 
-    Matrix<3> return_buffer;
+    Matrix<3> return_buffer{};
     for (int i = 0; i < 3; ++i) {
         return_buffer(i) = sensor_data[i][FILTER_MEDIAN_SIZE / 2];
     }
@@ -130,7 +130,7 @@ Matrix<3> device_manager_get_accel_mean() {
         delay(FILTER_MEAN_INTERVAL); // wait
     }
 
-    Matrix<3> return_buffer;
+    Matrix<3> return_buffer{};
     for (int i = 0; i < 3; ++i) {
         return_buffer(i) = sensor_data[i] / FILTER_MEAN_SIZE;
     }
