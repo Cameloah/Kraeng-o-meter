@@ -13,7 +13,6 @@
 
 Adafruit_MPU6050 sensor_imu;
 
-
 void device_manager_imu_init() {
     // Try to initialize
     Serial.println("Searching for MPU6050 chip...");
@@ -82,6 +81,26 @@ void device_manager_imu_init() {
             Serial.println("5 Hz");
             break;
     }
+}
+
+
+
+void device_manager_filter_mavg(float* new_angles, float* angles) {
+    for (int i = 0; i < 2; ++i) {
+        angles[i] = (new_angles[i] * FILTER_MAVG_FACTOR + (1 - FILTER_MAVG_FACTOR) * angles[i]);
+    }
+}
+
+Matrix<3> device_manager_get_accel_raw() {
+    Matrix<3> return_buffer{};
+    sensors_event_t a, g, temp;
+
+    sensor_imu.getEvent(&a, &g, &temp); // pull sensor data
+    return_buffer(0) = a.acceleration.x;
+    return_buffer(1) = a.acceleration.y;
+    return_buffer(2) = -1 * a.acceleration.z; // z axis of sensor is inverted
+
+    return return_buffer;
 }
 
 Matrix<3> device_manager_get_accel_median() {

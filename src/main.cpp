@@ -23,13 +23,14 @@
 // state variables
 uint8_t state_mode = 2;
 bool enable_serial_stream = false;
+float angles_x_y[] = {0, 0};
 
 void setup() {
     // Setup serial communication, when pc is connected
     Serial.begin(115200);
 
     delay(5000);
-    Serial.print("Kraeng-o-meter Version ");
+    Serial.print("Kräng-o-meter Version ");
     Serial.print(FW_VERSION_MAJOR);
     Serial.print(".");
     Serial.print(FW_VERSION_MINOR);
@@ -48,17 +49,17 @@ void setup() {
 void serial_comm_handler() {
     // listen for user input
     uint8_t rx_available_bytes = Serial.available();
-    if(rx_available_bytes > 0) {
+    if (rx_available_bytes > 0) {
         // import entire string until "\n"
         char rx_user_input[rx_available_bytes];
         Serial.readBytes(rx_user_input, rx_available_bytes);
 
         //extract first word as command key
-        char* rx_command_key = strtok(rx_user_input, " ");
+        char* rx_command_key = strtok(rx_user_input, " \n");
 
         if (!strcmp(rx_command_key, "mode")) {
             // extract next word
-            rx_command_key = strtok(nullptr, " ");
+            rx_command_key = strtok(nullptr, " \n");
             // convert to int
             uint8_t new_mode = *rx_command_key - '0';
             // check if within boundaries
@@ -66,14 +67,13 @@ void serial_comm_handler() {
                 state_mode = new_mode;
                 Serial.print("Change mode to: ");
                 Serial.println(state_mode);
-                delay(2000);
             }
             else Serial.println("Unknown mode. Modes are '0' for sensor, '1' for device and '2' for ship frame.");
         }
 
         else if (!strcmp(rx_command_key, "calibrate")) {
             // extract next word
-            rx_command_key = strtok(nullptr, " ");
+            rx_command_key = strtok(nullptr, " \n");
             // convert to int
             uint8_t calib_mode = *rx_command_key - '0';
             switch (calib_mode) {
@@ -90,9 +90,12 @@ void serial_comm_handler() {
 
         else if (!strcmp(rx_command_key, "stream")) {
             // extract next word
-            rx_command_key = strtok(nullptr, " ");
-            if (!strcmp(rx_command_key, "start"))
+            rx_command_key = strtok(nullptr, " \n");
+
+            if (!strcmp(rx_command_key, "start")) {
                 enable_serial_stream = true;
+                return;
+            }
 
             else if (!strcmp(rx_command_key, "stop"))
                 enable_serial_stream = false;
@@ -102,27 +105,28 @@ void serial_comm_handler() {
         }
 
         else if (!strcmp(rx_command_key, "memory")) {
-            rx_command_key = strtok(nullptr, " ");
+            rx_command_key = strtok(nullptr, " \n");
             if (!strcmp(rx_command_key, "data")) {
                 Matrix<3, 3> r_0_1;
                 Matrix<3, 3> r_1_2;
                 switch(module_memory_get_calibration((uint8_t*) &r_0_1, (uint8_t*) &r_1_2, sizeof(r_0_1))) {
                     case MODULE_MEMORY_ERROR_READ_R_0_1:
-                        Serial.println("Keine Gehäusekalibrierung gefunden.");
+                        Serial.println("Keine Daten gefunden.");
 
                     case MODULE_MEMORY_ERROR_READ_R_1_2:
+                        Serial << "R_0_1: " << r_0_1 << '\n';
                         Serial.println("Keine Schiffskalibrierung gefunden.");
                         break;
 
                     case MODULE_MEMORY_ERROR_NO_ERROR:
                         Serial.println("Kalibrierungsdaten aus Speicher: ");
+                        Serial << "R_0_1: " << r_0_1 << '\n';
+                        Serial << "R_1_2: " << r_1_2 << '\n';
                         break;
 
                     default:
                         Serial.println("Unbekannter Speicherfehler.");
                 }
-                Serial << "R_0_1: " << r_0_1 << '\n';
-                Serial << "R_1_2: " << r_1_2 << '\n';
             }
 
             else if (!strcmp(rx_command_key, "erase")) {
@@ -135,10 +139,23 @@ void serial_comm_handler() {
             else Serial.println("Unknown command.");
         }
 
+        else if (!strcmp(rx_command_key, "help")) {
+            Serial.println(" ");
+            Serial.println("List of available commands:");
+            Serial.println("calibrate [frame] - calibrate Kräng-o-meter. '1' for device frame, '2' for ship frame");
+            Serial.println("stream [command]  - toggle sensor data stream via serial port by adding 'start' or 'stop'");
+            Serial.println("mode [frame]      - change streamed data frame. '0' for raw, '1' for device and '2' for ship frame");
+            Serial.println("memory [command]  - access saved calibration data with 'data', erase all data with 'erase'");
+            Serial.println(" ");
+        }
+
         else {
             // unknown command
             Serial.println("Unknown command. To see list of available commands, type 'help'");
         }
+
+        if (enable_serial_stream)
+            delay(2000); // for readability when data stream is active
     }
 }
 
@@ -149,10 +166,9 @@ void loop() {
     serial_comm_handler();
 
     // calculate angles
-    float angles_x_y[] = {0, 0};
-    calculate_tiltangle_x_y(device_manager_get_accel_mean(), angles_x_y, state_mode);
+    calculate_tiltangle_x_y(device_manager_get_accel_raw(), angles_x_y, state_mode);
 
-    if(enable_serial_stream) {
+    if (enable_serial_stream) {
         Serial.print("Mode: ");
         Serial.print(state_mode);
         Serial.print(", ");

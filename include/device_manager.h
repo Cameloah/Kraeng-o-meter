@@ -18,8 +18,11 @@ using namespace BLA;
 #define FILTER_MEDIAN_INTERVAL                  1
 #define FILTER_MEAN_SIZE                        100
 #define FILTER_MEAN_INTERVAL                    1
+#define FILTER_MAVG_FACTOR                      0.01
 
 void device_manager_imu_init();
 
+void device_manager_filter_mavg(float* new_angles, float* angles);
+Matrix<3> device_manager_get_accel_raw();
 Matrix<3> device_manager_get_accel_median();
 Matrix<3> device_manager_get_accel_mean();

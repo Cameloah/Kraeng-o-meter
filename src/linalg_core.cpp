@@ -22,19 +22,19 @@ void serial_flush_() {
     String k = Serial.readString();
 }
 
-float length_(Matrix<3> vector) {
+float length_(Matrix<3> &vector) {
     return std::sqrt(vector(0) * vector(0)
                      + vector(1) * vector(1)
                      + vector(2) * vector(2));
 }
 
-Matrix<3> normalize_(Matrix<3> vector) {
+Matrix<3> normalize_(Matrix<3> &vector) {
     float length = length_(vector);
     Matrix<3> unit_vector = {vector(0) / length, vector(1) / length, vector(2) / length};
     return unit_vector;
 }
 
-Matrix<3> cross_(Matrix<3> a, Matrix<3> b) {
+Matrix<3> cross_(Matrix<3> &a, Matrix<3> &b) {
     Matrix<3> result = {(a(1) * b(2)) - (a(2) * b(1)),
                             (a(2) * b(0)) - (a(0) * b(2)),
                             (a(0) * b(1)) - (a(1) * b(0))}; // calculate cross product
@@ -86,22 +86,22 @@ void calibrate_device() {
      */
 
     Serial.println("Gehäuse-Kalibrierung");
-    Serial.println("Stellen sie das Gehaeuse hochkant auf den Tisch, die Anzeige zeigt nach oben.");
+    Serial.println("Stellen sie das Gehäuse hochkant auf den Tisch, die Anzeige zeigt nach oben.");
     Serial.println("Bestätigen Sie mit beliebiger Konsoleneingabe.");
     while(!Serial.available()) {}   // wait for any user input
     serial_flush_();
 
-    Matrix<3> e_z_device = device_manager_get_accel_median(); // measure g-vector
+    Matrix<3> e_z_device = device_manager_get_accel_mean(); // measure g-vector
     e_z_device = normalize_(e_z_device); // normalize
     e_z_device *= -1;   // flip
     Serial << "e_z_device: " << e_z_device << '\n';
 
-    Serial.println("Kippen Sie das Gehaeuse 90° zu sich, die Anzeige zeigt nach vorn und liegt gerade.");
+    Serial.println("Kippen Sie das Gehäuse 90° zu sich, die Anzeige zeigt nach vorn und liegt gerade.");
     Serial.println("Bestätigen Sie mit beliebiger Konsoleneingabe.");
     while(!Serial.available()) {}   // wait for any user input
     serial_flush_();
 
-    Matrix<3> e_y_device =  device_manager_get_accel_median(); // measure g-vector
+    Matrix<3> e_y_device =  device_manager_get_accel_mean(); // measure g-vector
     e_y_device = normalize_(e_y_device); // normalize
     e_y_device *= -1;   // flip
 
@@ -135,13 +135,13 @@ void calibrate_ship() {
     Matrix<3> e_x = {1, 0, 0};
 
     Serial.println("Schiffs-Kalibrierung");
-    Serial.println("Achten Sie beim Einbau auf eine moeglichst genaue Ausrichtung Richtung Bug. Gehaeuseschraeglage wird korrigiert. ");
-    Serial.println("Bestaetigen Sie mit beliebiger Konsoleneingabe.");
+    Serial.println("Achten Sie beim Einbau auf eine moeglichst genaue Ausrichtung Richtung Bug. Gehäuseschräglage wird korrigiert. ");
+    Serial.println("Bestätigen Sie mit beliebiger Konsoleneingabe.");
 
     while(!Serial.available()) {}   // wait for any user input
     serial_flush_();
 
-    Matrix<3> e_z_ship = device_manager_get_accel_median();// measure g-vector
+    Matrix<3> e_z_ship = device_manager_get_accel_mean();// measure g-vector
     e_z_ship = normalize_(e_z_ship); // normalize
     e_z_ship *= -1;   // flip
     e_z_ship = rot_mat_0_1 * e_z_ship; // rotate to device frame
@@ -165,6 +165,7 @@ void calibrate_ship() {
 }
 
 void calculate_tiltangle_x_y(Matrix<3> data_vector, float* return_buffer, int mode) {
+    float new_angles[2];
     // rotate vector
     switch (mode) {
         case 1:
@@ -180,8 +181,10 @@ void calculate_tiltangle_x_y(Matrix<3> data_vector, float* return_buffer, int mo
 
     data_vector *= -1; // invert vector
     // calculate angle using arctan2 and save in return_buffer
-    return_buffer[0] = atan2(data_vector(1), data_vector(2)) * 180 / PI;
-    return_buffer[1] = atan2(data_vector(0), data_vector(2)) * 180 / PI;
+    new_angles[0] = atan2(data_vector(1), data_vector(2)) * 180 / PI;
+    new_angles[1] = atan2(data_vector(0), data_vector(2)) * 180 / PI;
+
+    device_manager_filter_mavg(new_angles, return_buffer);
 }
 
 int get_calibration_state() {
