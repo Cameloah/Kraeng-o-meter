@@ -57,6 +57,7 @@ void linalg_core_init() {
         case MODULE_MEMORY_ERROR_READ_R_0_1:
             Serial.println("Keine Gehäusekalibrierung gefunden.");
 
+
         case MODULE_MEMORY_ERROR_READ_R_1_2:
             // R_0_1 was read successfully therefore set flag accordingly
             flag_device_calibration_state = true;

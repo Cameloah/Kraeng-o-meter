@@ -29,6 +29,8 @@ void setup() {
     // Setup serial communication, when pc is connected
     Serial.begin(115200);
 
+    // esp_log_level_set("*", ESP_LOG_NONE); doesnt help yet
+
     delay(5000);
     Serial.print("Kräng-o-meter Version ");
     Serial.print(FW_VERSION_MAJOR);
@@ -169,21 +171,39 @@ void loop() {
     calculate_tiltangle_x_y(device_manager_get_accel_raw(), angles_x_y, state_mode);
 
     if (enable_serial_stream) {
-        Serial.print("Mode: ");
-        Serial.print(state_mode);
-        Serial.print(", ");
+         switch (state_mode) {
+             case 0:
+                 Serial.print("Sensorkoordinaten, ");
+                 break;
 
-        switch (get_calibration_state()) {
-            case 2:
-                Serial.print("Rohdaten! Gehäusekoordinatensystem nicht kalibriert. ");
-                break;
+             case 1:
+                 if (get_calibration_state() == 2) {
+                     Serial.println("Nicht möglich. Gehäusekoordinatensystem nicht kalibriert.");
+                     state_mode = 0;
+                     delay(2000);
+                     break;
+                 }
+                 Serial.print("Gehäusekoordinaten, ");
+                 break;
 
-            case 1:
-                Serial.print("Gehäusekoordinaten! Schiffskoordinatensystem nicht kalibriert. ");
-                break;
+             case 2:
+                 if (get_calibration_state() == 2) {
+                     Serial.println("Nicht möglich. Schiffskoordinatensystem nicht kalibriert.");
+                     state_mode = 1;
+                     delay(2000);
+                     break;
+                 }
+                 else if (get_calibration_state() == 1){
+                     Serial.println("Nicht möglich. Gehäusekoordinatensystem nicht kalibriert.");
+                     state_mode = 0;
+                     delay(2000);
+                     break;
+                 }
+                 Serial.print("Schiffskoordinaten, ");
+                 break;
 
-            default:
-                Serial.print("Kalibriert. ");
+             default:
+                 break;
         }
 
         Serial.print("Neigung um Achse X: ");
