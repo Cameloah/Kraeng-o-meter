@@ -36,6 +36,8 @@ typedef struct {
     bool flag_device_calibration_state;
     bool flag_ship_calibration_state;
     uint8_t state_mode;
+    float threshold_x[2];
+    float threshold_y[2];
     Matrix<3, 3> rot_mat_1_0;
     Matrix<3, 3> rot_mat_2_1;
 } MODULE_MEMORY_CONFIG_t;
@@ -46,8 +48,13 @@ extern MODULE_MEMORY_CONFIG_t config_data;
 /// \return memory module standard error
 MODULE_MEMORY_ERROR_t module_memory_init();
 
+/// \brief uses the externally available typedef config-data buffer and stores it as one
+///        key in the flash storage
+/// \return error if no such key could be created
 MODULE_MEMORY_ERROR_t module_memory_save_config();
 
+/// \brief loads saved config data in externally available typedef config-data buffer
+/// \return error if no such key could be found
 MODULE_MEMORY_ERROR_t module_memory_load_config();
 
 /// \brief erases entire nvs flash and reinitializing it

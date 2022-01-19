@@ -12,6 +12,8 @@
 #include "tools/loop_timer.h"
 
 Adafruit_MPU6050 sensor_imu;
+// state variables
+float angles_x_y[] = {0, 0};
 
 void device_manager_imu_init() {
     // Try to initialize

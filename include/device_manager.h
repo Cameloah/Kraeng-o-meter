@@ -20,6 +20,8 @@ using namespace BLA;
 #define FILTER_MEAN_INTERVAL                    1
 #define FILTER_MAVG_FACTOR                      0.01
 
+extern float angles_x_y[];
+
 void device_manager_imu_init();
 
 void device_manager_filter_mavg(float* new_angles, float* angles);
