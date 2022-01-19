@@ -11,13 +11,6 @@
 #include "../include/device_manager.h"
 #include "../include/module_memory.h"
 
-
-bool flag_device_calibration_state = false;
-bool flag_ship_calibration_state = false;
-
-Matrix<3, 3> rot_mat_0_1;   // define rot mat to device coordinates
-Matrix<3, 3> rot_mat_1_2;   // define rot mat to ship coordinates
-
 void serial_flush_() {
     String k = Serial.readString();
 }
@@ -42,37 +35,23 @@ Matrix<3> cross_(Matrix<3> &a, Matrix<3> &b) {
 }
 
 void linalg_core_init() {
-    // fill rot matrices
-    rot_mat_0_1.Fill(0);
-    rot_mat_1_2.Fill(0);
-
-    // create identity matrices
-    for (int i = 0; i < 3; i++) {
-        rot_mat_0_1(i, i) = 1;
-        rot_mat_1_2(i, i) = 1;
-    }
-
     // check for existing calibration data
-    switch(module_memory_get_calibration((uint8_t*) &rot_mat_0_1, (uint8_t*) &rot_mat_1_2, sizeof (rot_mat_0_1))) {
-        case MODULE_MEMORY_ERROR_READ_R_0_1:
-            Serial.println("Keine Gehäusekalibrierung gefunden.");
+    if (module_memory_load_config() != MODULE_MEMORY_ERROR_NO_ERROR) {
+        Serial.println("Keine Konfigurationsdaten gefunden.");
 
+        // fill rot matrices
+        config_data.rot_mat_1_0.Fill(0);
+        config_data.rot_mat_2_1.Fill(0);
 
-        case MODULE_MEMORY_ERROR_READ_R_1_2:
-            // R_0_1 was read successfully therefore set flag accordingly
-            flag_device_calibration_state = true;
-            Serial.println("Keine Schiffskalibrierung gefunden.");
-            break;
-
-        case MODULE_MEMORY_ERROR_NO_ERROR:
-            Serial.println("Kalibrierung aus Speicher geladen.");
-            flag_device_calibration_state = true;
-            flag_ship_calibration_state = true;
-            break;
-
-        default:
-            Serial.println("Unbekannter Speicherfehler.");
+        // create identity matrices
+        for (int i = 0; i < 3; i++) {
+            config_data.rot_mat_1_0(i, i) = 1;
+            config_data.rot_mat_2_1(i, i) = 1;
+        }
+        return;
     }
+
+    else Serial.println("Konfigurationsdaten aus Speicher geladen");
 }
 
 void calibrate_device() {
@@ -111,17 +90,17 @@ void calibrate_device() {
 
     e_y_device = cross_(e_z_device, e_x_device); // calculate cross product
 
-    Matrix<3, 3> rot_mat_1_0 = e_x_device || e_y_device || e_z_device;
-    rot_mat_0_1 = ~rot_mat_1_0; // transpose mat
+    Matrix<3, 3> rot_mat_0_1 = e_x_device || e_y_device || e_z_device;
+    config_data.rot_mat_1_0 = ~rot_mat_0_1; // transpose mat
+
+    // all good so set flag high
+    config_data.flag_device_calibration_state = true;
+
     // save rot mat to filesystem
-    if(module_memory_set_calibration((uint8_t*) &rot_mat_0_1, ROT_MAT_0_1, sizeof (rot_mat_0_1))
-        == MODULE_MEMORY_ERROR_NO_ERROR)
+    if(module_memory_save_config() == MODULE_MEMORY_ERROR_NO_ERROR)
         Serial.println("Kalibrierung wurde gespeichert.");
     else
         Serial.println("Fehler beim Speichern. Bei Neustart ist Re-Kalibrierung nötig!");
-
-    // all good so set flag high
-    flag_device_calibration_state = true;
 }
 
 void calibrate_ship() {
@@ -145,43 +124,44 @@ void calibrate_ship() {
     Matrix<3> e_z_ship = device_manager_get_accel_mean();// measure g-vector
     e_z_ship = normalize_(e_z_ship); // normalize
     e_z_ship *= -1;   // flip
-    e_z_ship = rot_mat_0_1 * e_z_ship; // rotate to device frame
+    e_z_ship = config_data.rot_mat_1_0 * e_z_ship; // rotate to device frame
 
     Matrix<3> e_y_ship = cross_(e_z_ship, e_x); // calculate cross product
               e_y_ship = normalize_(e_y_ship); // normalize
 
     Matrix<3> e_x_ship = cross_(e_y_ship, e_z_ship); // calculate cross product
 
-    Matrix<3, 3> rot_mat_2_1 = e_x_ship || e_y_ship || e_z_ship;
-    rot_mat_1_2 = ~rot_mat_2_1; // transpose mat
+    Matrix<3, 3> rot_mat_1_2 = e_x_ship || e_y_ship || e_z_ship;
+    config_data.rot_mat_2_1 = ~rot_mat_1_2; // transpose mat
+
+    // all good so set flag high
+    config_data.flag_ship_calibration_state = true;
+
     // save rot mat to filesystem
-    if(module_memory_set_calibration((uint8_t*) &rot_mat_1_2, ROT_MAT_1_2, sizeof (rot_mat_1_2))
-        == MODULE_MEMORY_ERROR_NO_ERROR)
+    if(module_memory_save_config() == MODULE_MEMORY_ERROR_NO_ERROR)
         Serial.println("Kalibrierung wurde gespeichert.");
     else
         Serial.println("Fehler beim Speichern. Bei Neustart ist Re-Kalibrierung nötig!");
 
-    // all good so set flag high
-    flag_ship_calibration_state = true;
 }
 
-void calculate_tiltangle_x_y(Matrix<3> data_vector, float* return_buffer, int mode) {
+void calculate_tiltangle_x_y(Matrix<3> data_vector, float* return_buffer) {
     float new_angles[2];
     // rotate vector
-    switch (mode) {
+    switch (config_data.state_mode) {
         case 1:
-            data_vector = rot_mat_0_1 * data_vector;
+            data_vector = config_data.rot_mat_1_0 * data_vector;
             break;
 
         case 2:
-            data_vector = rot_mat_0_1 * data_vector;
-            data_vector = rot_mat_1_2 * data_vector;
+            data_vector = config_data.rot_mat_1_0 * data_vector;
+            data_vector = config_data.rot_mat_2_1 * data_vector;
     }
 
     // Serial << "data_vector: " << data_vector << '\n';
 
     data_vector *= -1; // invert vector
-    // calculate angle using arctan2 and save in return_buffer
+    // calculate angle using atan2 and save in return_buffer
     new_angles[0] = atan2(data_vector(1), data_vector(2)) * 180 / PI;
     new_angles[1] = atan2(data_vector(0), data_vector(2)) * 180 / PI;
 
@@ -189,10 +169,15 @@ void calculate_tiltangle_x_y(Matrix<3> data_vector, float* return_buffer, int mo
 }
 
 int get_calibration_state() {
-    if(flag_device_calibration_state) {
-        if(flag_ship_calibration_state)
+    if(config_data.flag_device_calibration_state) {
+        if(config_data.flag_ship_calibration_state)
             return 0;
         return 1;
     }
     return 2;
+}
+
+void put_state_mode(uint8_t mode) {
+    config_data.state_mode = mode;
+    module_memory_save_config();
 }

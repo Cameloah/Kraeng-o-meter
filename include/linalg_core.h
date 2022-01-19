@@ -26,9 +26,13 @@ void calibrate_ship();
 /// \param sensor_data array with raw acceleration sensor data in m/s
 /// \param return_buffer array with tilt angles in X and Y
 ///
-void calculate_tiltangle_x_y(Matrix<3> data_vector, float* return_buffer, int mode);
+void calculate_tiltangle_x_y(Matrix<3> data_vector, float* return_buffer);
 
 /// \brief returns calibration state
 /// \return 0 - calibrated, 1 - ship frame not calbrated, 2 - no calibration
 ///
 int get_calibration_state();
+
+/// \brief sets the statemode in the config data and saves it
+/// \param mode
+void put_state_mode(uint8_t mode);
