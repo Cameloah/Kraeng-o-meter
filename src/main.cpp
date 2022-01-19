@@ -21,15 +21,12 @@
 #define SYSCTRL_LOOPTIMER               // enable loop frequency control, remember to also set the loop freq in the loop_timer.h
 
 // state variables
-uint8_t state_mode = 2;
 bool enable_serial_stream = false;
 float angles_x_y[] = {0, 0};
 
 void setup() {
     // Setup serial communication, when pc is connected
     Serial.begin(115200);
-
-    // esp_log_level_set("*", ESP_LOG_NONE); doesnt help yet
 
     delay(5000);
     Serial.print("Kräng-o-meter Version ");
@@ -66,9 +63,9 @@ void serial_comm_handler() {
             uint8_t new_mode = *rx_command_key - '0';
             // check if within boundaries
             if (new_mode >= 0 && new_mode <= 2) {
-                state_mode = new_mode;
+                put_state_mode(new_mode);
                 Serial.print("Change mode to: ");
-                Serial.println(state_mode);
+                Serial.println(config_data.state_mode);
             }
             else Serial.println("Unknown mode. Modes are '0' for sensor, '1' for device and '2' for ship frame.");
         }
@@ -109,21 +106,16 @@ void serial_comm_handler() {
         else if (!strcmp(rx_command_key, "memory")) {
             rx_command_key = strtok(nullptr, " \n");
             if (!strcmp(rx_command_key, "data")) {
-                Matrix<3, 3> r_0_1;
-                Matrix<3, 3> r_1_2;
-                switch(module_memory_get_calibration((uint8_t*) &r_0_1, (uint8_t*) &r_1_2, sizeof(r_0_1))) {
-                    case MODULE_MEMORY_ERROR_READ_R_0_1:
+                switch(module_memory_load_config()) {
+                    case MODULE_MEMORY_ERROR_READ:
                         Serial.println("Keine Daten gefunden.");
-
-                    case MODULE_MEMORY_ERROR_READ_R_1_2:
-                        Serial << "R_0_1: " << r_0_1 << '\n';
-                        Serial.println("Keine Schiffskalibrierung gefunden.");
                         break;
 
                     case MODULE_MEMORY_ERROR_NO_ERROR:
                         Serial.println("Kalibrierungsdaten aus Speicher: ");
-                        Serial << "R_0_1: " << r_0_1 << '\n';
-                        Serial << "R_1_2: " << r_1_2 << '\n';
+                        Serial << "R_1_0: " << config_data.rot_mat_1_0 << '\n';
+                        Serial << "R_2_1: " << config_data.rot_mat_2_1 << '\n';
+                        Serial << "mode: " << config_data.state_mode << '\n';
                         break;
 
                     default:
@@ -133,9 +125,9 @@ void serial_comm_handler() {
 
             else if (!strcmp(rx_command_key, "erase")) {
                 Serial.println("Erasing flash...");
-                if (module_memory_erase_namespace() == MODULE_MEMORY_ERROR_NO_ERROR)
-                    Serial.println("Flash erased.");
-                else Serial.println("Error erasing flash.");
+                module_memory_erase_namespace();
+                // print error if function returns
+                Serial.println("Error erasing flash.");
             }
 
             else Serial.println("Unknown command.");
@@ -168,10 +160,10 @@ void loop() {
     serial_comm_handler();
 
     // calculate angles
-    calculate_tiltangle_x_y(device_manager_get_accel_raw(), angles_x_y, state_mode);
+    calculate_tiltangle_x_y(device_manager_get_accel_raw(), angles_x_y);
 
     if (enable_serial_stream) {
-         switch (state_mode) {
+         switch (config_data.state_mode) {
              case 0:
                  Serial.print("Sensorkoordinaten, ");
                  break;
@@ -179,7 +171,7 @@ void loop() {
              case 1:
                  if (get_calibration_state() == 2) {
                      Serial.println("Nicht möglich. Gehäusekoordinatensystem nicht kalibriert.");
-                     state_mode = 0;
+                     put_state_mode(0);
                      delay(2000);
                      break;
                  }
@@ -189,13 +181,13 @@ void loop() {
              case 2:
                  if (get_calibration_state() == 2) {
                      Serial.println("Nicht möglich. Schiffskoordinatensystem nicht kalibriert.");
-                     state_mode = 1;
+                     put_state_mode(1);
                      delay(2000);
                      break;
                  }
                  else if (get_calibration_state() == 1){
                      Serial.println("Nicht möglich. Gehäusekoordinatensystem nicht kalibriert.");
-                     state_mode = 0;
+                     put_state_mode(0);
                      delay(2000);
                      break;
                  }

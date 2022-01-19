@@ -13,60 +13,38 @@ Preferences mem_handler;
 
 MODULE_MEMORY_CONFIG_t config_data;
 
-MODULE_MEMORY_SEG_DATA_t config_data_array[] = {
-        {(uint8_t*) &config_data.flag_external_warning, sizeof (config_data.flag_external_warning)},
-        {(uint8_t*) &config_data.mode,                  sizeof (config_data.mode)},
-        {(uint8_t*) &config_data.rot_mat_1_0,           sizeof (config_data.rot_mat_1_0)},
-        {(uint8_t*) &config_data.rot_mat_1_0,           sizeof (config_data.rot_mat_1_0)},
-};
-
 MODULE_MEMORY_ERROR_t module_memory_init() {
     // move into directory, create if not existent
     uint8_t timer_init = 0;
-    while (!mem_handler.begin("Calibration", false)) {
+    while (!mem_handler.begin("Config", false)) {
         mem_handler.end();
         timer_init++;
         if (timer_init > MODULE_MEMORY_INIT_TIMER_MAX)
             return MODULE_MEMORY_ERROR_INIT;
     }
 
+    memset((uint8_t*) &config_data, 0x00, sizeof (config_data));
     return MODULE_MEMORY_ERROR_NO_ERROR;
 }
 
-MODULE_MEMORY_ERROR_t module_memory_set_calibration(uint8_t* user_buffer, uint8_t rot_mat_index, uint8_t user_size) {
-    MODULE_MEMORY_ERROR_t error = MODULE_MEMORY_ERROR_NO_ERROR;
+MODULE_MEMORY_ERROR_t module_memory_save_config() {
+    if (!mem_handler.putBytes("config_data", (uint8_t*) &config_data, sizeof (MODULE_MEMORY_CONFIG_t)))
+        return MODULE_MEMORY_ERROR_WRITE; // something went wrong during write
 
-    // write variable with name key
-    switch (rot_mat_index) {
-        case ROT_MAT_0_1:
-            if (!mem_handler.putBytes("R_0_1", user_buffer, user_size))
-                error = MODULE_MEMORY_ERROR_WRITE; // something went wrong during write
-            break;
-
-        case ROT_MAT_1_2:
-            if (!mem_handler.putBytes("R_1_2", user_buffer, user_size))
-                error = MODULE_MEMORY_ERROR_WRITE; // something went wrong during write
-    }
-
-    return error;
+    return MODULE_MEMORY_ERROR_NO_ERROR;
 }
 
-MODULE_MEMORY_ERROR_t module_memory_get_calibration(uint8_t* user_buffer_R_0_1, uint8_t* user_buffer_R_1_2, uint8_t user_size) {
-    if(!mem_handler.getBytes("R_0_1", user_buffer_R_0_1, user_size)) {
-        return MODULE_MEMORY_ERROR_READ_R_0_1;
-    }
-
-    if(!mem_handler.getBytes("R_1_2", user_buffer_R_1_2, user_size)) {
-        return MODULE_MEMORY_ERROR_READ_R_1_2;
-    }
+MODULE_MEMORY_ERROR_t module_memory_load_config() {
+    if (!mem_handler.getBytes("config_data", (uint8_t*) &config_data, sizeof (MODULE_MEMORY_CONFIG_t)))
+        return MODULE_MEMORY_ERROR_READ;
 
     return MODULE_MEMORY_ERROR_NO_ERROR;
 }
 
 MODULE_MEMORY_ERROR_t module_memory_erase_namespace() {
-    if(nvs_flash_erase() != ESP_OK)
+    if (nvs_flash_erase() != ESP_OK)
         return MODULE_MEMORY_ERROR_WRITE;
-    if(nvs_flash_init() != ESP_OK)
+    if (nvs_flash_init() != ESP_OK)
         return MODULE_MEMORY_ERROR_INIT;
 
     Serial.println("Erase complete. Restarting ESP...");
@@ -125,6 +103,6 @@ MODULE_MEMORY_ERROR_t module_memory_loadData(MODULE_MEMORY_SEG_DATA_t* user_buff
             user_buffer[entry].data[byte] = json[data_key][byte];
         }
     }
-    
+
     return MODULE_MEMORY_ERROR_NO_ERROR;
 }
