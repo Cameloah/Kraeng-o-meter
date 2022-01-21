@@ -70,6 +70,7 @@ void ui_config() {
         }
 
         Serial << "Threshold for '" << axis_key << "' set to: " << user_input << "\n";
+        module_memory_save_config();
     }
 
     else {

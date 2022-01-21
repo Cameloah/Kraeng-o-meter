@@ -158,12 +158,32 @@ void calculate_tiltangle_x_y(Matrix<3> data_vector, float* return_buffer) {
             data_vector = config_data.rot_mat_2_1 * data_vector;
     }
 
-    // Serial << "data_vector: " << data_vector << '\n';
-
     data_vector *= -1; // invert vector
+
     // calculate angle using atan2 and save in return_buffer
+
     new_angles[0] = atan2(data_vector(1), data_vector(2)) * 180 / PI;
     new_angles[1] = atan2(data_vector(0), data_vector(2)) * 180 / PI;
+
+    /*
+    // use zyx euler rotation angles
+    data_vector = normalize_(data_vector);
+    float c_1_3 = data_vector(0);
+    float c_2_3 = data_vector(1);
+    float c_3_3 = data_vector(2);
+    float c_3_1 = -1 * c_1_3 / sqrt(c_1_3 * c_1_3 + c_3_3 * c_3_3);
+    float c_3_2 = -1 * c_2_3 * c_3_3 / sqrt(c_1_3 * c_1_3 + c_3_3 * c_3_3);
+
+    new_angles[0] = atan2(c_3_2, c_3_3) * 180 / PI;
+    new_angles[1] = atan2( -1 * c_3_1, sqrt(c_3_2 * c_3_2 + c_3_3 * c_3_3)) * 180 / PI;
+
+
+    // use Jones rotation angles
+    float c_1_3 = data_vector(0);
+    float c_2_3 = data_vector(1);
+    float c_3_3 = data_vector(2);
+    new_angles[0] = atan2( c_2_3, sqrt(c_1_3 * c_1_3 + c_3_3 * c_3_3)) * 180 / PI;
+    new_angles[1] = atan2( c_1_3, sqrt(c_2_3 * c_2_3 + c_3_3 * c_3_3)) * 180 / PI;*/
 
     device_manager_filter_mavg(new_angles, return_buffer);
 }
