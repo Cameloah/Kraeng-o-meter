@@ -4,6 +4,7 @@
 
 #pragma once
 
+
 #define DISPLAY_MANAGER_CENTER_X                120
 #define DISPLAY_MANAGER_CENTER_Y                120
 
