@@ -5,6 +5,7 @@
 #pragma once
 
 #include <BasicLinearAlgebra.h>
+#include "tools/loop_timer.h"
 
 using namespace BLA;
 
@@ -18,7 +19,7 @@ using namespace BLA;
 #define FILTER_MEDIAN_INTERVAL                  1
 #define FILTER_MEAN_SIZE                        100
 #define FILTER_MEAN_INTERVAL                    1
-#define FILTER_MAVG_FACTOR                      0.01
+#define FILTER_MAVG_FACTOR                      1.0 / FREQ_LOOP_CYCLE_HZ
 
 extern float angles_x_y[];
 

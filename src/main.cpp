@@ -5,6 +5,7 @@
 #include "tools/loop_timer.h"
 #include "linalg_core.h"
 #include "device_manager.h"
+#include "display_manager.h"
 #include "module_memory.h"
 #include "user_interface.h"
 
@@ -25,7 +26,7 @@ void setup() {
     // Setup serial communication, when pc is connected
     Serial.begin(115200);
 
-    delay(5000);
+    // delay(5000);
     Serial.print("Kräng-o-meter Version ");
     Serial.print(FW_VERSION_MAJOR);
     Serial.print(".");
@@ -38,6 +39,7 @@ void setup() {
         Serial.println("Error initializing memory module.");
     device_manager_imu_init();
     linalg_core_init();
+    display_manager_init();
 
     delay(100);
 }
@@ -93,6 +95,8 @@ void loop() {
         Serial.print(angles_x_y[1]);
         Serial.println("°");
     }
+
+    display_manager_update();
 
     loop_timer++;   // iterate loop timer to track loop frequency
 
