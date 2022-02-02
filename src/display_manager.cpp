@@ -25,8 +25,9 @@ void display_manager_init() {
     gfx->begin();
     gfx->fillScreen(BLACK);
 
-    sprite_total.getPointer();
-    sprite_total.bitmap_bg;
+    sprite_total.setSwapBytes(true); // Swap the byte order for pushImage() - corrects endianness
+    sprite_total.setColorDepth(16);
+    sprite_total.createSprite(240, 240);
 }
 
 int center(int data) {
