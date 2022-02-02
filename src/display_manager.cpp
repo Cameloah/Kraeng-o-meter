@@ -16,7 +16,7 @@ TFT_eSPI tft = TFT_eSPI();  // Invoke custom library
 TFT_eSprite sprite_total = TFT_eSprite(&tft); // Sprite object for needle
 
 Arduino_DataBus *bus = new Arduino_ESP32PAR8(15, 33, 4, 2, 12, 13, 26, 25, 17, 16, 27, 14);
-Arduino_GFX *gfx = new Arduino_ILI9331(bus, 32);
+Arduino_GFX *gfx = new Arduino_ILI9331(bus, 32, 2);
 
 
 
@@ -34,6 +34,9 @@ int center(int data) {
     return DISPLAY_MANAGER_DISPLAY_SIZE / 2 + data;
 }
 
+uint16_t change_endianness(const uint16_t color) {
+    return (color>>8) | (color<<8);
+}
 void display_manager_2dframe() {
     // get max thresholds in x and y aka two half axies of an ellipsoid
     float threshold_y_max = abs(config_data.threshold_x[0]) > abs(config_data.threshold_x[1]) ? abs(config_data.threshold_x[0]) : abs(config_data.threshold_x[1]);
@@ -59,11 +62,11 @@ void display_manager_2dframe() {
     sprite_total.drawFastVLine(DISPLAY_MANAGER_CENTER_X, 0, DISPLAY_MANAGER_DISPLAY_SIZE, TFT_WHITE);
 
     // draw dot description
-    sprite_total.setFreeFont(FF6);
-    sprite_total.drawFastHLine(center(0), center(pos_dot_y), pos_dot_x, TFT_SILVER);
-    sprite_total.drawFastVLine(center(pos_dot_x), center(0), pos_dot_y, TFT_SILVER);
-    sprite_total.drawFastHLine(center(pos_dot_x), center(pos_dot_y), -pos_dot_x, TFT_SILVER);
-    sprite_total.drawFastVLine(center(pos_dot_x), center(pos_dot_y), -pos_dot_y, TFT_SILVER);
+    sprite_total.setFreeFont(FF0);
+    sprite_total.drawFastHLine(center(0), center(pos_dot_y), pos_dot_x, change_endianness(TFT_SILVER));
+    sprite_total.drawFastVLine(center(pos_dot_x), center(0), pos_dot_y, change_endianness(TFT_SILVER));
+    sprite_total.drawFastHLine(center(pos_dot_x), center(pos_dot_y), -pos_dot_x, change_endianness(TFT_SILVER));
+    sprite_total.drawFastVLine(center(pos_dot_x), center(pos_dot_y), -pos_dot_y, change_endianness(TFT_SILVER));
 
     int y_desc_start_x = pos_dot_x > 0 ? -ART_2DFRAME_DESC_DISTANCE_X : 14;
     int y_desc_start_y = pos_dot_y + (sprite_total.fontHeight(GFXFF) / 2) - 5;
@@ -86,33 +89,29 @@ void display_manager_2dframe() {
     sprite_total.setTextFont(1);
     sprite_total.print(" o");
 
-    sprite_total.setFreeFont(FF6);
+    sprite_total.setFreeFont(FF0);
     sprite_total.setCursor(center(y_desc_start_x), center(y_desc_start_y), GFXFF);
     sprite_total.print(angles_x_y[0], 1);
     sprite_total.setCursor(sprite_total.getCursorX(), center(y_desc_start_y - 18));
     sprite_total.setTextFont(1);
     sprite_total.print(" o");
 
-    // draw thresholds TODO: use draw_rect to draw
-    sprite_total.drawFastHLine(center(-10), center(pos_thr_x[0]), 20, TFT_RED);
-    sprite_total.drawFastHLine(center(-10), center(pos_thr_x[0]) +1, 20, TFT_RED);
-    sprite_total.drawFastHLine(center(-10), center(pos_thr_x[1]), 20, TFT_RED);
-    sprite_total.drawFastHLine(center(-10), center(pos_thr_x[1]) +1, 20, TFT_RED);
-    sprite_total.drawFastVLine(center(pos_thr_y[0]), center(-10), 20, TFT_RED);
-    sprite_total.drawFastVLine(center(pos_thr_y[0]) +1, center(-10), 20, TFT_RED);
-    sprite_total.drawFastVLine(center(pos_thr_y[1]), center(-10), 20, TFT_RED);
-    sprite_total.drawFastVLine(center(pos_thr_y[1]) +1, center(-10), 20, TFT_RED);
+    // draw thresholds
+    sprite_total.drawRect(center(-10), center(pos_thr_x[0]), 20, 2, change_endianness(RED));
+    sprite_total.drawRect(center(-10), center(pos_thr_x[1]), 20, 2, change_endianness(RED));
+    sprite_total.drawRect(center(pos_thr_y[0]), center(-10), 2, 20, change_endianness(RED));
+    sprite_total.drawRect(center(pos_thr_y[1]), center(-10), 2, 20, change_endianness(RED));
 
     // draw dot
-    sprite_total.fillCircle(center(pos_dot_x), center(pos_dot_y), 10, TFT_RED);
+    sprite_total.fillCircle(center(pos_dot_x), center(pos_dot_y), 10, change_endianness(RED));
 }
 
 void display_manager_update() {
 
     display_manager_2dframe();
-    /*
-    sprite_total.pushImage(0, 0, 240, 240, mercy);
-    sprite_total.setCursor(20, 100, 4);
+
+    // sprite_total.pushImage(0, 0, 240, 240, mercy);
+    /*sprite_total.setCursor(20, 100, 4);
     sprite_total.setTextColor(TFT_WHITE);
     sprite_total.print("X: ");
     sprite_total.print(angles_x_y[0], 1);
@@ -122,8 +121,5 @@ void display_manager_update() {
     sprite_total.print(angles_x_y[1], 1);
     sprite_total.print("°");*/
 
-    // sprite_total.setCursor(20, 150, 4);
-    // sprite_total.print(loop_timer_get_loop_freq());
-
-    sprite_total.pushSprite(0, 0);
+    gfx->draw16bitRGBBitmap(0, 80, (uint16_t*) sprite_total.getPointer(), 240, 240);
 }

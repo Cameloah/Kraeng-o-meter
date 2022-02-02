@@ -102,6 +102,7 @@ void loop() {
 
 #ifdef SYSCTRL_LOOPTIMER
     // keep loop at constant cycle frequency
+    // Serial.println(loop_timer_get_loop_freq());
     loop_timer_check_cycle_freq();
 #endif
 }
