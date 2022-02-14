@@ -49,6 +49,7 @@ void display_manager_2dframe() {
     else
         scaled_max_radius = ART_2DFRAME_MAX_RAD;
 
+    // calculate threshold marker and dot position
     int pos_thr_x[2] = {(int) (config_data.threshold_y[0] / threshold_x_max * scaled_max_radius), (int) (config_data.threshold_y[1] / threshold_x_max * scaled_max_radius)};
     int pos_thr_y[2] = {(int) (config_data.threshold_x[0] / threshold_y_max * scaled_max_radius), (int) (config_data.threshold_x[1] / threshold_y_max * scaled_max_radius)};
 
@@ -96,7 +97,7 @@ void display_manager_2dframe() {
     sprite_total.setTextFont(1);
     sprite_total.print(" o");
 
-    // draw thresholds
+    // draw threshold markers
     sprite_total.drawRect(center(-10), center(pos_thr_x[0]), 20, 2, change_endianness(RED));
     sprite_total.drawRect(center(-10), center(pos_thr_x[1]), 20, 2, change_endianness(RED));
     sprite_total.drawRect(center(pos_thr_y[0]), center(-10), 2, 20, change_endianness(RED));
@@ -109,17 +110,6 @@ void display_manager_2dframe() {
 void display_manager_update() {
 
     display_manager_2dframe();
-
-    // sprite_total.pushImage(0, 0, 240, 240, mercy);
-    /*sprite_total.setCursor(20, 100, 4);
-    sprite_total.setTextColor(TFT_WHITE);
-    sprite_total.print("X: ");
-    sprite_total.print(angles_x_y[0], 1);
-    sprite_total.print("°");
-    sprite_total.setCursor(120, 100, 4);
-    sprite_total.print("Y: ");
-    sprite_total.print(angles_x_y[1], 1);
-    sprite_total.print("°");*/
 
     gfx->draw16bitRGBBitmap(0, 80, (uint16_t*) sprite_total.getPointer(), 240, 240);
 }
