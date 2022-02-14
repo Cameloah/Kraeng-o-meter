@@ -5,6 +5,7 @@
 #include <Arduino_GFX_Library.h>
 #include <TFT_eSPI.h>
 #include <Free_Fonts.h>
+#include <Fonts/GFXFF/FreeMonoBold12pt7b.h>
 
 #include "data/bitmap.h"
 #include "display_manager.h"
@@ -16,7 +17,7 @@ TFT_eSPI tft = TFT_eSPI();  // Invoke custom library
 TFT_eSprite sprite_total = TFT_eSprite(&tft); // Sprite object for needle
 
 Arduino_DataBus *bus = new Arduino_ESP32PAR8(15, 33, 4, 2, 12, 13, 26, 25, 17, 16, 27, 14);
-Arduino_GFX *gfx = new Arduino_ILI9331(bus, 32, 2);
+Arduino_GFX *gfx = new Arduino_ILI9331(bus, 32);
 
 
 
@@ -63,16 +64,29 @@ void display_manager_2dframe() {
     sprite_total.drawFastVLine(DISPLAY_MANAGER_CENTER_X, 0, DISPLAY_MANAGER_DISPLAY_SIZE, TFT_WHITE);
 
     // draw dot description
-    sprite_total.setFreeFont(FF0);
+    // sprite_total.setFreeFont(&FreeMonoBold12pt7b);
     sprite_total.drawFastHLine(center(0), center(pos_dot_y), pos_dot_x, change_endianness(TFT_SILVER));
     sprite_total.drawFastVLine(center(pos_dot_x), center(0), pos_dot_y, change_endianness(TFT_SILVER));
     sprite_total.drawFastHLine(center(pos_dot_x), center(pos_dot_y), -pos_dot_x, change_endianness(TFT_SILVER));
     sprite_total.drawFastVLine(center(pos_dot_x), center(pos_dot_y), -pos_dot_y, change_endianness(TFT_SILVER));
 
     int y_desc_start_x = pos_dot_x > 0 ? -ART_2DFRAME_DESC_DISTANCE_X : 14;
-    int y_desc_start_y = pos_dot_y + (sprite_total.fontHeight(GFXFF) / 2) - 5;
-    int x_desc_start_x = pos_dot_x - 20;
-    int x_desc_start_y = pos_dot_y > 0 ? -14 : ART_2DFRAME_DESC_DISTANCE_y;
+    int y_desc_start_y;
+
+    if (pos_dot_y <= (sprite_total.fontHeight(4) / 2 + 7) && pos_dot_y > 0)
+        y_desc_start_y = sprite_total.fontHeight(4) / 2 - 3;
+    else if (pos_dot_y > -(sprite_total.fontHeight(4) / 2 + 5) && pos_dot_y <= 0)
+        y_desc_start_y = -(sprite_total.fontHeight(4) + 1);
+    else y_desc_start_y = pos_dot_y - (sprite_total.fontHeight(4) / 2 - 2);
+
+    int x_desc_start_x;
+    if (pos_dot_x <= 25 && pos_dot_x > 0)
+        x_desc_start_x = 6;
+    else if (pos_dot_x > -40 && pos_dot_x <= 0)
+        x_desc_start_x = -60;
+    else x_desc_start_x = pos_dot_x - 20;
+
+    int x_desc_start_y = pos_dot_y > 0 ? -28 : ART_2DFRAME_DESC_DISTANCE_y;
 
     if (y_desc_start_y > ART_2DFRAME_DESC_Y_LIMIT)
         y_desc_start_y = ART_2DFRAME_DESC_Y_LIMIT;
@@ -84,17 +98,14 @@ void display_manager_2dframe() {
     else if (x_desc_start_x < -ART_2DFRAME_DESC_X_LIMIT)
         x_desc_start_x = -ART_2DFRAME_DESC_X_LIMIT;
 
-    sprite_total.setCursor(center(x_desc_start_x), center(x_desc_start_y), GFXFF);
+    sprite_total.setCursor(center(x_desc_start_x), center(x_desc_start_y), 4);
     sprite_total.print(angles_x_y[1], 1);
-    sprite_total.setCursor(sprite_total.getCursorX(), center(x_desc_start_y - 18));
-    sprite_total.setTextFont(1);
+    sprite_total.setCursor(sprite_total.getCursorX(), center(x_desc_start_y + 4 - sprite_total.fontHeight(4) / 2), 2);
     sprite_total.print(" o");
 
-    sprite_total.setFreeFont(FF0);
-    sprite_total.setCursor(center(y_desc_start_x), center(y_desc_start_y), GFXFF);
+    sprite_total.setCursor(center(y_desc_start_x), center(y_desc_start_y), 4);
     sprite_total.print(angles_x_y[0], 1);
-    sprite_total.setCursor(sprite_total.getCursorX(), center(y_desc_start_y - 18));
-    sprite_total.setTextFont(1);
+    sprite_total.setCursor(sprite_total.getCursorX(), center(y_desc_start_y + 4 - sprite_total.fontHeight(4) / 2), 2);
     sprite_total.print(" o");
 
     // draw threshold markers
@@ -111,5 +122,5 @@ void display_manager_update() {
 
     display_manager_2dframe();
 
-    gfx->draw16bitRGBBitmap(0, 80, (uint16_t*) sprite_total.getPointer(), 240, 240);
+    gfx->draw16bitRGBBitmap(0, 0, (uint16_t*) sprite_total.getPointer(), 240, 320);
 }
