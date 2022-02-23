@@ -74,7 +74,6 @@ void calibrate_device() {
     Matrix<3> e_z_device = device_manager_get_accel_mean(); // measure g-vector
     e_z_device = normalize_(e_z_device); // normalize
     e_z_device *= -1;   // flip
-    Serial << "e_z_device: " << e_z_device << '\n';
 
     Serial.println("Kippen Sie das Gehäuse 90° zu sich, die Anzeige zeigt nach vorn und liegt gerade.");
     Serial.println("Bestätigen Sie mit beliebiger Konsoleneingabe.");

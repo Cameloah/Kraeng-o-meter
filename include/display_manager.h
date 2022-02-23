@@ -15,8 +15,9 @@
 #define ART_2DFRAME_DESC_DISTANCE_y             10
 
 #define ART_2DFRAME_DESC_X_LIMIT                105
-#define ART_2DFRAME_DESC_Y_LIMIT                100
+#define ART_2DFRAME_DESC_Y_LIMIT                75
 
+#define DISPLAY_MANAGER_WARING_BLINK_FREQ       1
 
 void display_manager_init();
 void display_manager_update();

@@ -1,30 +1,41 @@
 //
 // Created by koorj on 07.01.2022.
 //
-
-#include "device_manager.h"
-
 #include <Arduino.h>
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
 
+#include "device_manager.h"
+#include "module_memory.h"
 #include "tools/loop_timer.h"
 
 Adafruit_MPU6050 sensor_imu;
 // state variables
 float angles_x_y[] = {0, 0};
 
-void device_manager_imu_init() {
+bool flag_threshold_violation_angle_x = false;
+bool flag_threshold_violation_angle_y = false;
+
+
+
+void device_manager_init_imu() {
     // Try to initialize
     Serial.println("Searching for MPU6050 chip...");
+
+    double t_0 = millis();
     while (!sensor_imu.begin()) {
+        if (5000 < (millis() - t_0)) {
+            Serial.println("No IMU found!");
+            return;
+        }
         delay(10);
     }
     Serial.println("MPU6050 Found!");
 
     // Set sensor ranges
     sensor_imu.setAccelerometerRange(MPU6050_ACCEL_RANGE_G);
+    delay(10);
     Serial.print("Accelerometer range set to: ");
     switch (sensor_imu.getAccelerometerRange()) {
         case MPU6050_RANGE_2_G:
@@ -41,7 +52,9 @@ void device_manager_imu_init() {
             break;
     }
 
+    delay(10);
     sensor_imu.setGyroRange(MPU6050_GYRO_RANGE_DEG);
+    delay(10);
     Serial.print("Gyro range set to: ");
     switch (sensor_imu.getGyroRange()) {
         case MPU6050_RANGE_250_DEG:
@@ -58,7 +71,9 @@ void device_manager_imu_init() {
             break;
     }
 
+    delay(10);
     sensor_imu.setFilterBandwidth(MPU6050_FILTER_BW_HZ);
+    delay(10);
     Serial.print("Filter bandwidth set to: ");
     switch (sensor_imu.getFilterBandwidth()) {
         case MPU6050_BAND_260_HZ:
@@ -85,19 +100,57 @@ void device_manager_imu_init() {
     }
 }
 
+void device_manager_init() {
+    // imu
+    device_manager_init_imu();
 
+    // external GPIOs
+    pinMode(PIN_EXTERNAL_WARNING_RELAY, OUTPUT);
+    digitalWrite(PIN_EXTERNAL_WARNING_RELAY, HIGH);
+}
 
-void device_manager_filter_mavg(float* new_angles, float* angles) {
+void device_manager_check_warning() {
+    // check if angles are outside of threshold
+    if (angles_x_y[0] < config_data.threshold_angle_x[0] || angles_x_y[0] > config_data.threshold_angle_x[1])
+        flag_threshold_violation_angle_x = true;
+
+    if (angles_x_y[1] < config_data.threshold_angle_y[0] || angles_x_y[1] > config_data.threshold_angle_y[1])
+        flag_threshold_violation_angle_y = true;
+
+    // reset flags only if thresholds are sub-passed by a certain percent
+    if (angles_x_y[0] > config_data.threshold_angle_x[0] * WARNING_FLAG_CLEAR_AT && angles_x_y[0] < config_data.threshold_angle_x[1] * WARNING_FLAG_CLEAR_AT)
+        flag_threshold_violation_angle_x = false;
+
+    if (angles_x_y[1] > config_data.threshold_angle_y[0] * WARNING_FLAG_CLEAR_AT && angles_x_y[1] < config_data.threshold_angle_y[1] * WARNING_FLAG_CLEAR_AT)
+        flag_threshold_violation_angle_y = false;
+
+    if (flag_threshold_violation_angle_x || flag_threshold_violation_angle_y)
+    {
+        // activate relay if config is activated
+        if (config_data.flag_external_warning)
+            digitalWrite(PIN_EXTERNAL_WARNING_RELAY, LOW);
+
+        else digitalWrite(PIN_EXTERNAL_WARNING_RELAY, HIGH);
+    }
+
+    else digitalWrite(PIN_EXTERNAL_WARNING_RELAY, HIGH);
+}
+
+void device_manager_filter_mavg(const float* new_angles, float* angles) {
     for (int i = 0; i < 2; ++i) {
-        angles[i] = (new_angles[i] * FILTER_MAVG_FACTOR + (1 - FILTER_MAVG_FACTOR) * angles[i]);
+        angles[i] = (float) (new_angles[i] * (config_data.filter_mavg_factor / FREQ_LOOP_CYCLE_HZ)
+                    + (1 - (config_data.filter_mavg_factor / FREQ_LOOP_CYCLE_HZ)) * angles[i]);
     }
 }
 
 Matrix<3> device_manager_get_accel_raw() {
-    Matrix<3> return_buffer{};
+    Matrix<3> return_buffer{0, 0, 0};
     sensors_event_t a, g, temp;
+    memset(&a, 0x00, sizeof(sensors_event_t));
 
-    sensor_imu.getEvent(&a, &g, &temp); // pull sensor data
+    if(!sensor_imu.getEvent(&a, &g, &temp)) // pull sensor data
+        return return_buffer;
+
     return_buffer(0) = a.acceleration.x;
     return_buffer(1) = a.acceleration.y;
     return_buffer(2) = -1 * a.acceleration.z; // z axis of sensor is inverted
