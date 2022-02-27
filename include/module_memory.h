@@ -36,8 +36,9 @@ typedef struct {
     bool flag_device_calibration_state;
     bool flag_ship_calibration_state;
     uint8_t state_mode;
-    float threshold_x[2];
-    float threshold_y[2];
+    float threshold_angle_x[2];
+    float threshold_angle_y[2];
+    float filter_mavg_factor;
     Matrix<3, 3> rot_mat_1_0;
     Matrix<3, 3> rot_mat_2_1;
 } MODULE_MEMORY_CONFIG_t;
