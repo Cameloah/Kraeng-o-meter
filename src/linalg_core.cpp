@@ -74,7 +74,6 @@ void calibrate_device() {
     Matrix<3> e_z_device = device_manager_get_accel_mean(); // measure g-vector
     e_z_device = normalize_(e_z_device); // normalize
     e_z_device *= -1;   // flip
-    Serial << "e_z_device: " << e_z_device << '\n';
 
     Serial.println("Kippen Sie das Gehäuse 90° zu sich, die Anzeige zeigt nach vorn und liegt gerade.");
     Serial.println("Bestätigen Sie mit beliebiger Konsoleneingabe.");
@@ -161,11 +160,11 @@ void calculate_tiltangle_x_y(Matrix<3> data_vector, float* return_buffer) {
     data_vector *= -1; // invert vector
 
     // calculate angle using atan2 and save in return_buffer
-
-    new_angles[0] = atan2(data_vector(1), data_vector(2)) * 180 / PI;
-    new_angles[1] = atan2(data_vector(0), data_vector(2)) * 180 / PI;
-
     /*
+    new_angles[0] = atan2(data_vector(1), data_vector(2)) * 180 / PI;
+    new_angles[1] = atan2(data_vector(0), data_vector(2)) * 180 / PI;*/
+
+
     // use zyx euler rotation angles
     data_vector = normalize_(data_vector);
     float c_1_3 = data_vector(0);
@@ -174,10 +173,10 @@ void calculate_tiltangle_x_y(Matrix<3> data_vector, float* return_buffer) {
     float c_3_1 = -1 * c_1_3 / sqrt(c_1_3 * c_1_3 + c_3_3 * c_3_3);
     float c_3_2 = -1 * c_2_3 * c_3_3 / sqrt(c_1_3 * c_1_3 + c_3_3 * c_3_3);
 
-    new_angles[0] = atan2(c_3_2, c_3_3) * 180 / PI;
-    new_angles[1] = atan2( -1 * c_3_1, sqrt(c_3_2 * c_3_2 + c_3_3 * c_3_3)) * 180 / PI;
+    new_angles[0] = -atan2(c_3_2, c_3_3) * 180 / PI;
+    new_angles[1] = -atan2( -1 * c_3_1, sqrt(c_3_2 * c_3_2 + c_3_3 * c_3_3)) * 180 / PI;
 
-
+    /*
     // use Jones rotation angles
     float c_1_3 = data_vector(0);
     float c_2_3 = data_vector(1);

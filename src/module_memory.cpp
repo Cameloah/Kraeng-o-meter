@@ -11,7 +11,16 @@
 
 Preferences mem_handler;
 
-MODULE_MEMORY_CONFIG_t config_data;
+
+MODULE_MEMORY_CONFIG_t config_data = {
+        .flag_external_warning = false,
+        .flag_device_calibration_state = false,
+        .flag_ship_calibration_state = false,
+        .state_mode = 2,
+        .threshold_angle_x = {-2, 2},
+        .threshold_angle_y = {-2, 2},
+        .filter_mavg_factor = 1.0,
+};
 
 MODULE_MEMORY_ERROR_t module_memory_init() {
     // move into directory, create if not existent
@@ -23,7 +32,6 @@ MODULE_MEMORY_ERROR_t module_memory_init() {
             return MODULE_MEMORY_ERROR_INIT;
     }
 
-    memset((uint8_t*) &config_data, 0x00, sizeof (config_data));
     return MODULE_MEMORY_ERROR_NO_ERROR;
 }
 
