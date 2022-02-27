@@ -23,19 +23,17 @@ void device_manager_init_imu() {
     // Try to initialize
     Serial.println("Searching for MPU6050 chip...");
 
-    double t_0 = millis();
+    double t_0_init = millis();
     while (!sensor_imu.begin()) {
-        if (5000 < (millis() - t_0)) {
+        if (MPU6050_INIT_TIMEOUT < (millis() - t_0_init)) {
             Serial.println("No IMU found!");
             return;
         }
-        delay(10);
     }
     Serial.println("MPU6050 Found!");
 
     // Set sensor ranges
     sensor_imu.setAccelerometerRange(MPU6050_ACCEL_RANGE_G);
-    delay(10);
     Serial.print("Accelerometer range set to: ");
     switch (sensor_imu.getAccelerometerRange()) {
         case MPU6050_RANGE_2_G:
@@ -52,9 +50,7 @@ void device_manager_init_imu() {
             break;
     }
 
-    delay(10);
     sensor_imu.setGyroRange(MPU6050_GYRO_RANGE_DEG);
-    delay(10);
     Serial.print("Gyro range set to: ");
     switch (sensor_imu.getGyroRange()) {
         case MPU6050_RANGE_250_DEG:
@@ -71,9 +67,7 @@ void device_manager_init_imu() {
             break;
     }
 
-    delay(10);
     sensor_imu.setFilterBandwidth(MPU6050_FILTER_BW_HZ);
-    delay(10);
     Serial.print("Filter bandwidth set to: ");
     switch (sensor_imu.getFilterBandwidth()) {
         case MPU6050_BAND_260_HZ:

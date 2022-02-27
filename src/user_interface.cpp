@@ -19,11 +19,24 @@ void ui_config() {
     // extract next word
     char* sub_key = strtok(nullptr, " \n");
 
+    if (sub_key == nullptr) {
+        Serial << "\nUngültiger Parameter. Mindestens einer der folgenden Parameter fehlt:\n" <<
+            "konfiguriere -r [Koordinatensystem]              - Kalibrieren des Koordinatensystems. '1' für Gehäusekalibrierung und '2' für Schiffskalibrierung\n" <<
+            "             -s ['b' 'h' 'bb' or 'stb'] [Wert]   - Setzen des eingegebenen Werts als Neigungswinkel-Schwellwert für Bug,\n" <<
+            "                                                   Heck, Backbord oder Steuerbord des Schiffes\n" <<
+            "                                        --auto   - speichere aktuellen Neigungswinkel als Schwellwert für Bug, Heck\n" <<
+            "                                                   Backbord oder Steuerbord des Schiffes\n" <<
+            "             --extern [Wert]                     - aktiviere/deaktiviere externes Alarmsignal\n" <<
+            "             --filter [Wert]                     - Filterhärte, ein kleinerer Wert verstärkt den Tiefpassfilter und erzeugt mehr Robustheit,\n"
+            "                                                   aber verlangsamt die Reaktionszeit des Geräts. Standardwert: 1.0\n\n";
+        return;
+    }
+
     // calibration of coordinate frames
     if (!strcmp(sub_key, "-r")) {
         // convert to int
         sub_key = strtok(nullptr, " \n");
-        uint8_t calib_mode = *sub_key - '0';
+        auto calib_mode = (int8_t) atof(sub_key);
         switch (calib_mode) {
             case 1:
                 calibrate_device();
@@ -32,61 +45,80 @@ void ui_config() {
                 calibrate_ship();
                 break;
             default:
-                Serial.println("Unknown mode. Calibration modes are '1' for device frame and '2' for ship frame.");
+                Serial.println("\nUnbekannter Modus. Kalibrierungsmodi sind '1' für Gehäusekalibrierung und '2' für Schiffskalibrierung.");
         }
     }
 
     // set thresholds
-    else if (!strcmp(sub_key, "-t")) {
+    else if (!strcmp(sub_key, "-s")) {
         float user_input;
         char* axis_key = strtok(nullptr, " \n");
         sub_key = strtok(nullptr, " \n");
+
+        if(sub_key == nullptr)
+        {
+            Serial.println("\nEs muss ein Wert übergeben werden.");
+            return;
+        }
 
         // import float
         user_input = atof(sub_key);
 
         if (!strcmp(sub_key, "--auto")) {
             // if option auto is provided copy data from main angles array
-            if (*axis_key == 'f' || *axis_key == 'b')
+            if ((!strcmp(axis_key, "b")) || (!strcmp(axis_key, "h")))
                 user_input = angles_x_y[0];
             else user_input = angles_x_y[1];
         }
 
-        switch (*axis_key) {
-            case 'f':
-                config_data.threshold_angle_x[0] = user_input;
-                break;
-            case 'b':
-                config_data.threshold_angle_x[1] = user_input;
-                break;
-            case 'l':
+        if(!strcmp(axis_key, "b"))
+            config_data.threshold_angle_x[0] = user_input;
+
+        else if (!strcmp(axis_key, "h"))
+            config_data.threshold_angle_x[1] = user_input;
+
+        else if (!strcmp(axis_key, "bb"))
                 config_data.threshold_angle_y[0] = user_input;
-                break;
-            case 'r':
-                config_data.threshold_angle_y[1] = user_input;
-                break;
-            default:
-                Serial.println("Invalid Parameters. At leas one of the following is missing.");
-                Serial.println("config -t ['f' 'b' 'l' or 'r'] [value]  - set warning threshold for front, back, left or right of the ship");
-                Serial.println("                               --auto   - acquire current inclination and set as warning threshold for");
-                Serial.println("                                          front, back, left or right of the ship");
-                return;
+
+        else if (!strcmp(axis_key, "stb"))
+            config_data.threshold_angle_y[1] = user_input;
+
+        else {
+            Serial << "\nUngültiger Richtungsparameter. Der Syntax ist:\n" <<
+                   "konfiguriere -s ['b' 'h' 'bb' or 'stb'] [Wert]   - Setzen des eingegebenen Werts als Neigungswinkel-Schwellwert für Bug,\n"
+                   <<
+                   "                                                   Heck, Backbord oder Steuerbord des Schiffes\n" <<
+                   "                                        --auto   - speichere aktuellen Neigungswinkel als Schwellwert für Bug, Heck\n"
+                   <<
+                   "                                                   Backbord oder Steuerbord des Schiffes\n\n";
+            return;
         }
 
-        Serial << "Threshold for '" << axis_key << "' set to: " << user_input << "\n";
+        Serial << "Neigungswinkel-Schwellwert für '" << axis_key << "' auf " << user_input << " gesetzt.\n";
         module_memory_save_config();
     }
 
-    else if(!strcmp(sub_key, "--external")) {
+    else if(!strcmp(sub_key, "--extern")) {
         sub_key = strtok(nullptr, " \n");
         uint8_t user_input = *sub_key - '0';
 
-        if (user_input == 0 || user_input == 1) {
-            config_data.flag_external_warning = user_input;
-            Serial << "External warning signal set to : " << user_input << "\n";
-            module_memory_save_config();
+        switch (user_input) {
+            case 1:
+                config_data.flag_external_warning = true;
+                Serial << "Externes Warnsignal eingeschaltet\n";
+                break;
+
+            case 0:
+                config_data.flag_external_warning = false;
+                Serial << "Externes Warnsignal ausgeschaltet\n";
+                break;
+
+            default:
+                Serial.println("Ungültiger Parameter. Wert '1' oder '0' zum Einschalten bzw. Ausschalten.");
+                return;
         }
-        else Serial.println("Invalid Parameters. Provide '1' to enable or '0' to disable.");
+        // save user data
+        module_memory_save_config();
     }
 
     else if(!strcmp(sub_key, "--filter")) {
@@ -95,18 +127,20 @@ void ui_config() {
         float user_input = atof(sub_key);
 
         config_data.filter_mavg_factor = user_input;
-        Serial << "Filter factor set to : " << user_input << "\n";
+        Serial << "Filterhärte auf " << user_input << " gesetzt.\n";
         module_memory_save_config();
     }
 
     else {
-        Serial.println("Invalid Parameters. At least one of the following is missing.");
-        Serial.println("config -r [frame]                       - calibrate Kräng-o-meter. '1' for device frame, '2' for ship frame");
-        Serial.println("       -t ['f' 'b' 'l' or 'r'] [value]  - set warning threshold for front, back, left or right of the ship");
-        Serial.println("                               --auto   - acquire current inclination and set as warning threshold for");
-        Serial.println("                                          front, back, left or right of the ship");
-        Serial.println("       --external [value]               - enable/disable external alarm signal");
-        Serial.println("       --filter [value]                 - filter value for the sensor data filter, default: 1.0");
+        Serial << "\nUngültiger Parameter. Mindestens einer der folgenden Parameter fehlt:\n" <<
+        "konfiguriere -r [Koordinatensystem]              - Kalibrieren des Koordinatensystems. '1' für Gehäusekalibrierung und '2' für Schiffskalibrierung\n" <<
+        "             -s ['b' 'h' 'bb' or 'stb'] [Wert]   - Setzen des eingegebenen Werts als Neigungswinkel-Schwellwert für Bug,\n" <<
+        "                                                   Heck, Backbord oder Steuerbord des Schiffes\n" <<
+        "                                        --auto   - speichere aktuellen Neigungswinkel als Schwellwert für Bug, Heck\n" <<
+        "                                                   Backbord oder Steuerbord des Schiffes\n" <<
+        "             --extern [Wert]                     - aktiviere/deaktiviere externes Alarmsignal\n" <<
+        "             --filter [Wert]                     - Filterhärte, ein kleinerer Wert verstärkt den Tiefpassfilter und erzeugt mehr Robustheit,\n"
+        "                                                   aber verlangsamt die Reaktionszeit des Geräts. Standardwert: 1.0\n\n";
     }
 }
 
@@ -114,29 +148,36 @@ void ui_mode() {
     // extract next word
     char* sub_key = strtok(nullptr, " \n");
     // convert to int
-    uint8_t new_mode = *sub_key - '0';
+    auto new_mode = (int8_t) atof(sub_key);
     // check if within boundaries
     if (new_mode >= 0 && new_mode <= 2) {
         put_state_mode(new_mode);
-        Serial.print("Change mode to: ");
-        Serial.println(config_data.state_mode);
+        Serial << "Ändere Ausgabemodus auf " << config_data.state_mode << "\n";
     }
-    else Serial.println("Unknown mode. Modes are '0' for sensor, '1' for device and '2' for ship frame.");
+    else Serial.println("\nUnbekannter Ausgabemodus. Modi sind '0' für Sensor-, '1' für Geräte- und '2' für Schiffskoordinatensystem.");
 }
 
 void ui_stream() {
     // extract next word
     char* sub_key = strtok(nullptr, " \n");
 
-    if (!strcmp(sub_key, "--start")) {
-        enable_serial_stream = true;
-        sub_key = strtok(nullptr, " \n");
-
-        if (!strcmp(sub_key, "--verbose")) {
-            enable_serial_verbose = true;
-            return;
-        }
+    if (sub_key == nullptr) {
+        Serial.println("\nFehlender Parameter. Optionen sind '--start' und '--stop'.");
         return;
+    }
+
+    if (!strcmp(sub_key, "--start")) {
+        sub_key = strtok(nullptr, " \n");
+        enable_serial_stream = true;
+
+        if (sub_key == nullptr)
+            return;
+
+        if (!strcmp(sub_key, "--erweitert"))
+            enable_serial_verbose = true;
+
+        else
+            Serial.println("Unbekannte Option.");
     }
 
     else if (!strcmp(sub_key, "--stop")) {
@@ -145,12 +186,19 @@ void ui_stream() {
     }
 
     else
-        Serial.println("Options are '--start', '--stop'.");
+        Serial.println("\nUnbekannter Parameter. Optionen sind '--start' und '--stop'.");
 }
 
 void ui_memory() {
     char* sub_key = strtok(nullptr, " \n");
-    if (!strcmp(sub_key, "--data")) {
+
+    if (sub_key == nullptr) {
+        Serial << "\nUngültiger Parameter. Mindestens einer der folgenden Parameter fehlt:\n" <<
+        "speicher [Option]       - Zugriff auf gespeicherte Einstellungen über '--alles', zurücksetzen ALLER Einstellungen mit '--löschen'\n\n";
+        return;
+    }
+
+    if (!strcmp(sub_key, "--alles")) {
         Serial << "\n";
         switch(module_memory_load_config()) {
             case MODULE_MEMORY_ERROR_READ:
@@ -158,16 +206,16 @@ void ui_memory() {
                 break;
 
             case MODULE_MEMORY_ERROR_NO_ERROR:
-                Serial.println("Konfigurationsdaten aus Speicher: ");
-                Serial << "external alarm:          " << config_data.flag_external_warning << '\n';
-                Serial << "device frame calibrated: " << config_data.flag_device_calibration_state << '\n';
-                Serial << "ship frame calibrated:   " << config_data.flag_ship_calibration_state << '\n';
-                Serial << "warning threshold for x: " << config_data.threshold_angle_x[0] << ", " << config_data.threshold_angle_x[1] << '\n';
-                Serial << "warning threshold for y: " << config_data.threshold_angle_y[0] << ", " << config_data.threshold_angle_y[1] << '\n';
-                Serial << "mavg filter factor:      " << config_data.filter_mavg_factor << '\n';
-                Serial << "mode:                    " << config_data.state_mode << '\n';
-                Serial << "R_1_0:                   " << config_data.rot_mat_1_0 << '\n';
-                Serial << "R_2_1:                   " << config_data.rot_mat_2_1 << '\n';
+                Serial << "Konfigurationsdaten aus Speicher: \n" <<
+                          "externes Warnsignal:                     " << config_data.flag_external_warning << '\n' <<
+                          "Gehäusesystem kalibriert:                " << config_data.flag_device_calibration_state << '\n' <<
+                          "Schiffssystem kalibriert:                " << config_data.flag_ship_calibration_state << '\n' <<
+                          "Schwellwert für Bug und Heck             " << config_data.threshold_angle_x[0] << "°, " << config_data.threshold_angle_x[1] << "°\n" <<
+                          "Schwellwert für Backbord und Steuerbord  " << config_data.threshold_angle_y[0] << "°, " << config_data.threshold_angle_y[1] << "°\n" <<
+                          "Filterhärte:                             " << config_data.filter_mavg_factor << '\n' <<
+                          "Ausgabemodus:                            " << config_data.state_mode << '\n' <<
+                          "Gehäuserotationsmatrix R_1_0:            " << config_data.rot_mat_1_0 << '\n' <<
+                          "Schiffsrotationsmatrix R_2_1:            " << config_data.rot_mat_2_1 << '\n';
                 break;
 
             default:
@@ -175,40 +223,60 @@ void ui_memory() {
         }
     }
 
-    else if (!strcmp(sub_key, "--erase")) {
-        Serial.println("Erasing flash...");
+    else if (!strcmp(sub_key, "--löschen")) {
+
+        Serial.println("Lösche Flash-Speicher des ESP32...");
         module_memory_erase_namespace();
         // print error if function returns
-        Serial.println("Error erasing flash.");
+        Serial.println("Fehler beim Löschen!");
     }
 
-    else Serial.println("Unknown command.");
+    else Serial << "\nUngültiger Parameter. Mindestens einer der folgenden Parameter fehlt:\n" <<
+                "speicher [Option]       - Zugriff auf gespeicherte Einstellungen über '--alles', zurücksetzen ALLER Einstellungen mit '--löschen'\n\n";
 }
 
 void ui_info() {
-    Serial.print("Kräng-o-meter Version ");
-    Serial << FW_VERSION_MAJOR << "." << FW_VERSION_MINOR << "." << FW_VERSION_PATCH << "\n";
+    Serial << "Kräng-o-meter Version " << FW_VERSION_MAJOR << "." << FW_VERSION_MINOR << "." << FW_VERSION_PATCH << "\n";
 }
 
 void ui_debug() {
     char* sub_key = strtok(nullptr, " \n");
 
-    if (!strcmp(sub_key, "--singleshot"))
-        Serial << "Single measurement" << device_manager_get_accel_raw() << "\n";
+    if (sub_key == nullptr) {
+        Serial << "\nUngültiger Befehl. Mindestens einer der folgenden Parameter fehlt:\n" <<
+        "debug --einzel              - starte einzelne Messung\n" <<
+        "      --reinit              - Reinitialisiere den Sensor\n" <<
+        "      --reboot              - Neustarten des Geräts\n" <<
+        "      --aktiviere           - Aktivieren oder Deaktivieren des Sensors\n\n";
+    }
 
-    if (!strcmp(sub_key, "--reinit"))
+    if (!strcmp(sub_key, "--einzel"))
+        Serial << "Einzelne Messung: " << device_manager_get_accel_raw() << "\n";
+
+    else if (!strcmp(sub_key, "--reinit"))
         device_manager_init_imu();
 
-    if (!strcmp(sub_key, "--reboot"))
+    else if (!strcmp(sub_key, "--reboot"))
         esp_restart();
 
-    if (!strcmp(sub_key, "--enable")) {
+    else if (!strcmp(sub_key, "--aktiviere")) {
         sub_key = strtok(nullptr, " \n");
+
+        if(sub_key == nullptr)
+            return;
+        
         // convert to int
         uint8_t user_int = *sub_key - '0';
         enable_measurements = user_int;
     }
 
+    else {
+        Serial << "\nUngültiger Befehl. Mindestens einer der folgenden Parameter fehlt:\n" <<
+               "debug --einzel              - starte einzelne Messung\n" <<
+               "      --reinit              - Reinitialisiere den Sensor\n" <<
+               "      --reboot              - Neustarten des Geräts\n" <<
+               "      --aktiviere           - Aktivieren oder Deaktivieren des Sensors\n\n";
+    }
 }
 
 void ui_serial_comm_handler() {
@@ -219,19 +287,23 @@ void ui_serial_comm_handler() {
         char rx_user_input[rx_available_bytes];
         Serial.readBytes(rx_user_input, rx_available_bytes);
 
-        //extract first word as command key
+        // extract first word as command key
         char* rx_command_key = strtok(rx_user_input, " \n");
 
-        if (!strcmp(rx_command_key, "mode"))
+        // catch exception where no token was sent
+        if (rx_command_key == nullptr)
+            return;
+
+        if (!strcmp(rx_command_key, "modus"))
             ui_mode();
 
-        else if (!strcmp(rx_command_key, "config"))
+        else if (!strcmp(rx_command_key, "konfiguriere"))
             ui_config();
 
         else if (!strcmp(rx_command_key, "stream"))
             ui_stream();
 
-        else if (!strcmp(rx_command_key, "memory"))
+        else if (!strcmp(rx_command_key, "speicher"))
             ui_memory();
 
         else if (!strcmp(rx_command_key, "info"))
@@ -240,32 +312,32 @@ void ui_serial_comm_handler() {
         else if (!strcmp(rx_command_key, "debug"))
             ui_debug();
 
-        else if (!strcmp(rx_command_key, "help")) {
-            Serial.println(" ");
-            Serial.println("List of available commands:");
-            Serial.println("config -r [frame]                       - calibrate Kräng-o-meter. '1' for device frame, '2' for ship frame");
-            Serial.println("       -t ['f' 'b' 'l' or 'r'] [value]  - set warning threshold for front, back, left or right of the ship");
-            Serial.println("                               --auto   - acquire current inclination and set as warning threshold for");
-            Serial.println("                                          front, back, left or right of the ship");
-            Serial.println("       --external [value]               - enable/disable external alarm signal");
-            Serial.println("       --filter [value]                 - filter value for the sensor data filter, default: 1.0");
-            Serial.println(" ");
-            Serial.println("stream [command]                        - toggle sensor data stream via serial port by adding '--start' or '--stop'");
-            Serial.println(" ");
-            Serial.println("mode [frame]                            - change streamed data frame. '0' for raw, '1' for device and '2' for ship frame");
-            Serial.println(" ");
-            Serial.println("memory [command]                        - access saved calibration data with '--data', erase all data with '--erase'");
-            Serial.println(" ");
-            Serial.println("info                                    - get device info such as firmware version");
-            Serial.println(" ");
+        else if (!strcmp(rx_command_key, "hilfe")) {
+            Serial << "\nListe der verfügbaren Befehle:\n" <<
+                    "konfiguriere -r [Koordinatensystem]              - Kalibrieren des Koordinatensystems. '1' für Gehäusekalibrierung und '2' für Schiffskalibrierung\n" <<
+                    "             -s ['b' 'h' 'bb' or 'stb'] [Wert]   - Setzen des eingegebenen Werts als Neigungswinkel-Schwellwert für Bug,\n" <<
+                    "                                                   Heck, Backbord oder Steuerbord des Schiffes\n" <<
+                    "                                        --auto   - speichere aktuellen Neigungswinkel als Schwellwert für Bug, Heck\n" <<
+                    "                                                   Backbord oder Steuerbord des Schiffes\n" <<
+                    "             --extern [Wert]                     - aktiviere/deaktiviere externes Alarmsignal\n" <<
+                    "             --filter [Wert]                     - Filterhärte, ein kleinerer Wert verstärkt den Tiefpassfilter und erzeugt mehr Robustheit,\n"
+                    "                                                   aber verlangsamt die Reaktionszeit des Geräts. Standardwert: 1.0\n\n" <<
+                    "stream [Option]                                  - Starten und Stoppen des Datenstreams über USB mit '--start' oder '--stop'\n\n" <<
+                    "modus [Koordinatensystem]                        - Ändern des Ausgabemodus. Modi sind '0' für Sensor-, '1' für Geräte- und '2' für Schiffskoordinatensystem\n\n" <<
+                    "speicher [Option]                                - Zugriff auf gespeicherte Einstellungen über '--alles', zurücksetzen ALLER Einstellungen mit '--löschen'\n\n" <<
+                    "info                                             - Rückgabe der Geräteinformationen wie z.b. der Firmware-Version\n\n";
         }
 
         else {
             // unknown command
-            Serial.println("Unknown command. To see list of available commands, type 'help'");
+            Serial.println("\nUnbekannter Befehl. Nutzen Sie 'hilfe' um eine Liste aller verfügbaren Befehle und deren Syntax zu erhalten.");
         }
 
+        // flush serial buffer
+        Serial.readString();
+
         if (enable_serial_stream)
-            delay(2000); // for readability when data stream is active
+            delay(1000); // for readability when data stream is active
+            Serial << '\n';
     }
 }

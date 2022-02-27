@@ -13,7 +13,7 @@ using namespace BLA;
 #define MPU6050_ACCEL_RANGE_G                   MPU6050_RANGE_2_G
 #define MPU6050_GYRO_RANGE_DEG                  MPU6050_RANGE_500_DEG
 #define MPU6050_FILTER_BW_HZ                    MPU6050_BAND_5_HZ
-
+#define MPU6050_INIT_TIMEOUT                    5000
 //______GPIOs_____________________________________
 #define PIN_EXTERNAL_WARNING_RELAY              23
 
