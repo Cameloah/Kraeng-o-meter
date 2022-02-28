@@ -281,6 +281,8 @@ void ui_debug() {
 
 void ui_serial_comm_handler() {
     // listen for user input
+    if (Serial.available())
+        delay(50); // wait a bit for transfer of all serial data
     uint8_t rx_available_bytes = Serial.available();
     if (rx_available_bytes > 0) {
         // import entire string until "\n"

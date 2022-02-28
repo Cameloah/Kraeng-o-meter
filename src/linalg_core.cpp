@@ -67,18 +67,45 @@ void calibrate_device() {
 
     Serial.println("Gehäuse-Kalibrierung");
     Serial.println("Stellen sie das Gehäuse hochkant auf den Tisch, die Anzeige zeigt nach oben.");
-    Serial.println("Bestätigen Sie mit beliebiger Konsoleneingabe.");
+    Serial.println("Bestätigen Sie mit beliebiger Konsoleneingabe. Abbrechen mit 'abbruch'.");
+
     while(!Serial.available()) {}   // wait for any user input
+    delay(50); // wait a bit for transfer of all serial data
+    uint8_t rx_available_bytes = Serial.available();
+    char rx_user_input[50];
+    Serial.readBytes(rx_user_input, rx_available_bytes);
     serial_flush_();
+    // extract first word
+    char* rx_command_key = strtok(rx_user_input, " \n");
+    //handle null pointer exception
+    if (rx_command_key != nullptr) {
+        if (!strcmp(rx_command_key, "abbruch")) {
+            Serial.println("Kalibrierung abgebrochen.");
+            return;
+        }
+    }
 
     Matrix<3> e_z_device = device_manager_get_accel_mean(); // measure g-vector
     e_z_device = normalize_(e_z_device); // normalize
     e_z_device *= -1;   // flip
 
     Serial.println("Kippen Sie das Gehäuse 90° zu sich, die Anzeige zeigt nach vorn und liegt gerade.");
-    Serial.println("Bestätigen Sie mit beliebiger Konsoleneingabe.");
+    Serial.println("Bestätigen Sie mit beliebiger Konsoleneingabe. Abbrechen mit 'abbruch'.");
+
     while(!Serial.available()) {}   // wait for any user input
+    delay(50); // wait a bit for transfer of all serial data
+    rx_available_bytes = Serial.available();
+    Serial.readBytes(rx_user_input, rx_available_bytes);
     serial_flush_();
+    // extract first word
+    rx_command_key = strtok(rx_user_input, " \n");
+    //handle null pointer exception
+    if (rx_command_key != nullptr) {
+        if (!strcmp(rx_command_key, "abbruch")) {
+            Serial.println("Kalibrierung abgebrochen.");
+            return;
+        }
+    }
 
     Matrix<3> e_y_device =  device_manager_get_accel_mean(); // measure g-vector
     e_y_device = normalize_(e_y_device); // normalize
@@ -94,12 +121,39 @@ void calibrate_device() {
 
     // all good so set flag high
     config_data.flag_device_calibration_state = true;
+    Serial.println("Kalibrierung der Sensorlage im Gehäuse abgeschlossen. Soll die Kalibrierung gespeichert werden? 'ja', 'nein'");
 
-    // save rot mat to filesystem
-    if(module_memory_save_config() == MODULE_MEMORY_ERROR_NO_ERROR)
-        Serial.println("Kalibrierung wurde gespeichert.");
-    else
-        Serial.println("Fehler beim Speichern. Bei Neustart ist Re-Kalibrierung nötig!");
+    while (true) {
+        while(!Serial.available()) {}   // wait for any user input
+        delay(50); // wait a bit for transfer of all serial data
+        rx_available_bytes = Serial.available();
+        Serial.readBytes(rx_user_input, rx_available_bytes);
+        serial_flush_();
+
+        // extract first word
+        char* rx_command_key = strtok(rx_user_input, " \n");
+        //handle null pointer exception
+        if (rx_command_key == nullptr) {
+            Serial.println("Optionen sind 'ja' oder 'nein'.");
+            continue;
+        }
+
+        if (!strcmp(rx_user_input, "nein")) {
+            Serial.println("Abgeschlossen.");
+            return;
+        }
+
+        else if (!strcmp(rx_user_input, "ja")) {
+            // save rot mat to filesystem
+            if (module_memory_save_config() == MODULE_MEMORY_ERROR_NO_ERROR)
+                Serial.println("Abgeschlossen. Kalibrierung wurde gespeichert.");
+            else
+                Serial.println("Fehler beim Speichern. Bei Neustart ist möglicherweise Re-Kalibrierung nötig!");
+            return;
+        }
+
+        else Serial.println("Optionen sind 'ja' oder 'nein'.");
+    }
 }
 
 void calibrate_ship() {
@@ -115,10 +169,23 @@ void calibrate_ship() {
 
     Serial.println("Schiffs-Kalibrierung");
     Serial.println("Achten Sie beim Einbau auf eine moeglichst genaue Ausrichtung Richtung Bug. Gehäuseschräglage wird korrigiert. ");
-    Serial.println("Bestätigen Sie mit beliebiger Konsoleneingabe.");
+    Serial.println("Bestätigen Sie mit beliebiger Konsoleneingabe. Abbrechen mit 'abbruch'.");
 
     while(!Serial.available()) {}   // wait for any user input
+    delay(50); // wait a bit for transfer of all serial data
+    uint8_t rx_available_bytes = Serial.available();
+    char rx_user_input[50];
+    Serial.readBytes(rx_user_input, rx_available_bytes);
     serial_flush_();
+    // extract first word
+    char* rx_command_key = strtok(rx_user_input, " \n");
+    //handle null pointer exception
+    if (rx_command_key != nullptr) {
+        if (!strcmp(rx_command_key, "abbruch")) {
+            Serial.println("Kalibrierung abgebrochen.");
+            return;
+        }
+    }
 
     Matrix<3> e_z_ship = device_manager_get_accel_mean();// measure g-vector
     e_z_ship = normalize_(e_z_ship); // normalize
@@ -135,13 +202,39 @@ void calibrate_ship() {
 
     // all good so set flag high
     config_data.flag_ship_calibration_state = true;
+    Serial.println("Kalibrierung der Gehäuselage im Schiff abgeschlossen. Soll die Kalibrierung gespeichert werden? 'ja', 'nein'");
 
-    // save rot mat to filesystem
-    if(module_memory_save_config() == MODULE_MEMORY_ERROR_NO_ERROR)
-        Serial.println("Kalibrierung wurde gespeichert.");
-    else
-        Serial.println("Fehler beim Speichern. Bei Neustart ist Re-Kalibrierung nötig!");
+    while (true) {
+        while(!Serial.available()) {}   // wait for any user input
+        delay(50); // wait a bit for transfer of all serial data
+        rx_available_bytes = Serial.available();
+        Serial.readBytes(rx_user_input, rx_available_bytes);
+        serial_flush_();
 
+        // extract first word
+        char* rx_command_key = strtok(rx_user_input, " \n");
+        //handle null pointer exception
+        if (rx_command_key == nullptr) {
+            Serial.println("Optionen sind 'ja' oder 'nein'.");
+            continue;
+        }
+
+        if (!strcmp(rx_user_input, "nein")) {
+            Serial.println("Abgeschlossen.");
+            return;
+        }
+
+        else if (!strcmp(rx_user_input, "ja")) {
+            // save rot mat to filesystem
+            if (module_memory_save_config() == MODULE_MEMORY_ERROR_NO_ERROR)
+                Serial.println("Abgeschlossen. Kalibrierung wurde gespeichert.");
+            else
+                Serial.println("Fehler beim Speichern. Bei Neustart ist möglicherweise Re-Kalibrierung nötig!");
+            return;
+        }
+
+        else Serial.println("Optionen sind 'ja' oder 'nein'.");
+    }
 }
 
 void calculate_tiltangle_x_y(Matrix<3> data_vector, float* return_buffer) {
