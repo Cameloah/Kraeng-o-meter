@@ -174,5 +174,5 @@ void display_manager_update() {
     display_manager_2dframe();
     display_manager_alarm();
 
-    gfx->draw16bitRGBBitmap(0, 0, (uint16_t*) sprite_total.getPointer(), 240, 320);
+    //gfx->draw16bitRGBBitmap(0, 0, (uint16_t*) sprite_total.getPointer(), 240, 320);
 }

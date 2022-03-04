@@ -36,8 +36,7 @@ void setup() {
     device_manager_init();
     linalg_core_init();
     display_manager_init();
-    // wifi_debugger_init(config_data.wifi_ssid, config_data.wifi_pw, "https://github.com/Cameloah/common_lib_wifi_debugger/blob/master/bin_version.txt",
-    //                   "https://github.com/Cameloah/common_lib_wifi_debugger/blob/master/.pio/build/esp32dev/firmware.bin");
+    wifi_debugger_init(config_data.wifi_ssid, config_data.wifi_pw);
 
     // if enabled, automatically check for update
     if (config_data.flag_auto_update)
@@ -105,8 +104,9 @@ void loop() {
     }
 
     device_manager_check_warning();
+    Serial.println("debug1");
     display_manager_update();
-
+    Serial.println("debug2");
     loop_timer++;   // iterate loop timer to track loop frequency
 
 #ifdef SYSCTRL_LOOPTIMER
