@@ -13,6 +13,8 @@
 
 
 /* Changelog:
+- 1.0.1 minor improvements such as ability to cancel calibration procedure
+        and several minor bugfixes
 - 1.0.0 basic readout adapted from adafruit mpu6050 example
         display data and interface via serial comm
         calculates rot matrices from sensor to device housing and from device to ship during calibration
@@ -34,8 +36,8 @@ void setup() {
     device_manager_init();
     linalg_core_init();
     display_manager_init();
-    wifi_debugger_init(config_data.wifi_ssid, config_data.wifi_pw, "https://github.com/Cameloah/common_lib_wifi_debugger/blob/master/bin_version.txt",
-                       "https://github.com/Cameloah/common_lib_wifi_debugger/blob/master/.pio/build/esp32dev/firmware.bin");
+    // wifi_debugger_init(config_data.wifi_ssid, config_data.wifi_pw, "https://github.com/Cameloah/common_lib_wifi_debugger/blob/master/bin_version.txt",
+    //                   "https://github.com/Cameloah/common_lib_wifi_debugger/blob/master/.pio/build/esp32dev/firmware.bin");
 
     // if enabled, automatically check for update
     if (config_data.flag_auto_update)

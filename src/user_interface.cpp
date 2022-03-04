@@ -14,7 +14,7 @@
 
 bool enable_serial_stream = false;
 bool enable_serial_verbose = false;
-bool enable_measurements = true;
+bool enable_measurements = false;
 
 void ui_config() {
     // extract next word
@@ -136,18 +136,57 @@ void ui_config() {
 
     // configure wifi access
     else if(!strcmp(sub_key, "--wifi")) {
-        sub_key = strtok(nullptr, " \n");
-        config_data.wifi_ssid = sub_key;
+        Serial.println("Name/SSID des Netzwerks?");
 
-        sub_key = strtok(nullptr, " \n");
-        config_data.wifi_pw = sub_key;
+        // flush serial buffer
+        Serial.readString();
 
+        // listen for user input
+        while (!Serial.available())
+        // wait a bit for transfer of all serial data
+        delay(50);
+
+        String wifi_user_input = Serial.readString();
+        wifi_user_input.trim(); // remove trailing new line character
+
+        if (wifi_user_input.length() > (sizeof (config_data.wifi_ssid) / sizeof (char))) {
+            Serial.println("SSID zu lang!");
+            return;
+        }
+        // save ssid
+        wifi_user_input.toCharArray(config_data.wifi_ssid, (sizeof (config_data.wifi_ssid) / sizeof (char)));
+
+        // ask for password
+        Serial.println("Passwort?");
+
+        // flush serial buffer
+        Serial.readString();
+
+        // listen for user input
+        while (!Serial.available())
+            // wait a bit for transfer of all serial data
+            delay(50);
+
+        wifi_user_input = Serial.readString();
+        wifi_user_input.trim(); // remove trailing new line character
+
+        if (wifi_user_input.length() > (sizeof (config_data.wifi_pw) / sizeof (char))) {
+            Serial.println("Passwort zu lang!");
+            return;
+        }
+        wifi_user_input.toCharArray(config_data.wifi_pw, (sizeof (config_data.wifi_pw) / sizeof (char)));
+
+        Serial << "WiFi-Daten gespeichert. SSID: '" << config_data.wifi_ssid << "', PW: '" << config_data.wifi_pw << "'\n";
         module_memory_save_config();
     }
 
     // handle fw updates
     else if(!strcmp(sub_key, "--update")) {
         sub_key = strtok(nullptr, " \n");
+
+        if (sub_key == nullptr)
+            strcpy(sub_key, "");
+
         if(!strcmp(sub_key, "--auto")) {
             sub_key = strtok(nullptr, " \n");
             auto user_input = (int8_t) atof(sub_key);
@@ -252,15 +291,18 @@ void ui_memory() {
 
             case MODULE_MEMORY_ERROR_NO_ERROR:
                 Serial << "Konfigurationsdaten aus Speicher: \n" <<
-                          "externes Warnsignal:                     " << config_data.flag_external_warning << '\n' <<
-                          "Gehäusesystem kalibriert:                " << config_data.flag_device_calibration_state << '\n' <<
-                          "Schiffssystem kalibriert:                " << config_data.flag_ship_calibration_state << '\n' <<
-                          "Schwellwert für Bug und Heck             " << config_data.threshold_angle_x[0] << "°, " << config_data.threshold_angle_x[1] << "°\n" <<
-                          "Schwellwert für Backbord und Steuerbord  " << config_data.threshold_angle_y[0] << "°, " << config_data.threshold_angle_y[1] << "°\n" <<
-                          "Filterhärte:                             " << config_data.filter_mavg_factor << '\n' <<
-                          "Ausgabemodus:                            " << config_data.state_mode << '\n' <<
-                          "Gehäuserotationsmatrix R_1_0:            " << config_data.rot_mat_1_0 << '\n' <<
-                          "Schiffsrotationsmatrix R_2_1:            " << config_data.rot_mat_2_1 << '\n';
+                "WiFi SSID:                               " << config_data.wifi_ssid << "\n" <<
+                "WiFi passwort:                           " << config_data.wifi_pw << "\n" <<
+                "Automatische Updates:                    " << config_data.flag_auto_update << "\n" <<
+                "externes Warnsignal:                     " << config_data.flag_external_warning << '\n' <<
+                "Gehäusesystem kalibriert:                " << config_data.flag_device_calibration_state << '\n' <<
+                "Schiffssystem kalibriert:                " << config_data.flag_ship_calibration_state << '\n' <<
+                "Schwellwert für Bug und Heck             " << config_data.threshold_angle_x[0] << "°, " << config_data.threshold_angle_x[1] << "°\n" <<
+                "Schwellwert für Backbord und Steuerbord  " << config_data.threshold_angle_y[0] << "°, " << config_data.threshold_angle_y[1] << "°\n" <<
+                "Filterhärte:                             " << config_data.filter_mavg_factor << '\n' <<
+                "Ausgabemodus:                            " << config_data.state_mode << '\n' <<
+                "Gehäuserotationsmatrix R_1_0:            " << config_data.rot_mat_1_0 << '\n' <<
+                "Schiffsrotationsmatrix R_2_1:            " << config_data.rot_mat_2_1 << '\n';
                 break;
 
             default:
