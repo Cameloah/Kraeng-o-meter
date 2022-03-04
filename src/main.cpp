@@ -8,6 +8,7 @@
 #include "display_manager.h"
 #include "module_memory.h"
 #include "user_interface.h"
+#include "wifi_debugger.h"
 
 
 
@@ -33,6 +34,13 @@ void setup() {
     device_manager_init();
     linalg_core_init();
     display_manager_init();
+    wifi_debugger_init(config_data.wifi_ssid, config_data.wifi_pw, "https://github.com/Cameloah/common_lib_wifi_debugger/blob/master/bin_version.txt",
+                       "https://github.com/Cameloah/common_lib_wifi_debugger/blob/master/.pio/build/esp32dev/firmware.bin");
+
+    // if enabled, automatically check for update
+    if (config_data.flag_auto_update)
+        if (wifi_debugger_fwVersionCheck())
+            wifi_debugger_firmwareUpdate();
 
     delay(100);
 }

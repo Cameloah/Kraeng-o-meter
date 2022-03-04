@@ -10,6 +10,7 @@
 #include "module_memory.h"
 #include "device_manager.h"
 #include "linalg_core.h"
+#include "wifi_debugger.h"
 
 bool enable_serial_stream = false;
 bool enable_serial_verbose = false;
@@ -98,6 +99,7 @@ void ui_config() {
         module_memory_save_config();
     }
 
+    // toggle external warning signal
     else if(!strcmp(sub_key, "--extern")) {
         sub_key = strtok(nullptr, " \n");
         uint8_t user_input = *sub_key - '0';
@@ -105,12 +107,12 @@ void ui_config() {
         switch (user_input) {
             case 1:
                 config_data.flag_external_warning = true;
-                Serial << "Externes Warnsignal eingeschaltet\n";
+                Serial << "Externes Warnsignal eingeschaltet.\n";
                 break;
 
             case 0:
                 config_data.flag_external_warning = false;
-                Serial << "Externes Warnsignal ausgeschaltet\n";
+                Serial << "Externes Warnsignal ausgeschaltet.\n";
                 break;
 
             default:
@@ -121,6 +123,7 @@ void ui_config() {
         module_memory_save_config();
     }
 
+    // set filter parameter for sensor data
     else if(!strcmp(sub_key, "--filter")) {
         sub_key = strtok(nullptr, " \n");
         // import float
@@ -129,6 +132,48 @@ void ui_config() {
         config_data.filter_mavg_factor = user_input;
         Serial << "Filterhärte auf " << user_input << " gesetzt.\n";
         module_memory_save_config();
+    }
+
+    // configure wifi access
+    else if(!strcmp(sub_key, "--wifi")) {
+        sub_key = strtok(nullptr, " \n");
+        config_data.wifi_ssid = sub_key;
+
+        sub_key = strtok(nullptr, " \n");
+        config_data.wifi_pw = sub_key;
+
+        module_memory_save_config();
+    }
+
+    // handle fw updates
+    else if(!strcmp(sub_key, "--update")) {
+        sub_key = strtok(nullptr, " \n");
+        if(!strcmp(sub_key, "--auto")) {
+            sub_key = strtok(nullptr, " \n");
+            auto user_input = (int8_t) atof(sub_key);
+
+            switch (user_input) {
+                case 1:
+                    config_data.flag_auto_update = true;
+                    Serial << "Automatische Updates eingeschaltet.\n";
+                    break;
+
+                case 0:
+                    config_data.flag_auto_update = false;
+                    Serial << "Automatische Updates ausgeschaltet.\n";
+                    break;
+
+                default:
+                    Serial.println("Ungültiger Parameter. Wert '1' oder '0' zum Einschalten bzw. Ausschalten.");
+                    return;
+            }
+            module_memory_save_config();
+            return;
+        }
+
+        if (wifi_debugger_fwVersionCheck()) {
+            wifi_debugger_firmwareUpdate();
+        }
     }
 
     else {

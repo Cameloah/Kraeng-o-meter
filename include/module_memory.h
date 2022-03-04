@@ -32,6 +32,9 @@ typedef struct {
 } MODULE_MEMORY_SEG_DATA_t;
 
 typedef struct {
+    const char* wifi_ssid;
+    const char* wifi_pw;
+    bool flag_auto_update;
     bool flag_external_warning;
     bool flag_device_calibration_state;
     bool flag_ship_calibration_state;

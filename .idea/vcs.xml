@@ -3,5 +3,6 @@
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/lib/Arduino_GFX" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/lib/common_lib_wifi_debugger" vcs="Git" />
   </component>
 </project>

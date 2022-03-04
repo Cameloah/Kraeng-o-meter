@@ -13,6 +13,9 @@ Preferences mem_handler;
 
 
 MODULE_MEMORY_CONFIG_t config_data = {
+        .wifi_ssid = "",
+        .wifi_pw = "",
+        .flag_auto_update = false,
         .flag_external_warning = false,
         .flag_device_calibration_state = false,
         .flag_ship_calibration_state = false,
