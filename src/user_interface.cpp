@@ -17,6 +17,7 @@ bool enable_serial_verbose = false;
 bool enable_measurements = false;
 
 void ui_config() {
+    MODULE_MEMORY_ERROR_t retVal = MODULE_MEMORY_ERROR_UNKNOWN;
     // extract next word
     char* sub_key = strtok(nullptr, " \n");
 
@@ -96,7 +97,10 @@ void ui_config() {
         }
 
         Serial << "Neigungswinkel-Schwellwert für '" << axis_key << "' auf " << user_input << " gesetzt.\n";
-        module_memory_save_config();
+        if((retVal = module_memory_save_config()) != MODULE_MEMORY_ERROR_NO_ERROR) {
+            Serial << "Fehler beim Speichern: " << retVal << "\n";
+            return;
+        };
     }
 
     // toggle external warning signal
@@ -120,7 +124,10 @@ void ui_config() {
                 return;
         }
         // save user data
-        module_memory_save_config();
+        if((retVal = module_memory_save_config()) != MODULE_MEMORY_ERROR_NO_ERROR) {
+            Serial << "Fehler beim Speichern: " << retVal << "\n";
+            return;
+        };
     }
 
     // set filter parameter for sensor data
@@ -131,7 +138,10 @@ void ui_config() {
 
         config_data.filter_mavg_factor = user_input;
         Serial << "Filterhärte auf " << user_input << " gesetzt.\n";
-        module_memory_save_config();
+        if((retVal = module_memory_save_config()) != MODULE_MEMORY_ERROR_NO_ERROR) {
+            Serial << "Fehler beim Speichern: " << retVal << "\n";
+            return;
+        };
     }
 
     // configure wifi access
@@ -177,7 +187,10 @@ void ui_config() {
         wifi_user_input.toCharArray(config_data.wifi_pw, (sizeof (config_data.wifi_pw) / sizeof (char)));
 
         Serial << "WiFi-Daten gespeichert. SSID: '" << config_data.wifi_ssid << "', PW: '" << config_data.wifi_pw << "'\n";
-        module_memory_save_config();
+        if((retVal = module_memory_save_config()) != MODULE_MEMORY_ERROR_NO_ERROR) {
+            Serial << "Fehler beim Speichern: " << retVal << "\n";
+            return;
+        };
     }
 
     // handle fw updates
@@ -189,6 +202,9 @@ void ui_config() {
 
         if(!strcmp(sub_key, "--auto")) {
             sub_key = strtok(nullptr, " \n");
+            if (sub_key == nullptr)
+                strcpy(sub_key, "");
+
             auto user_input = (int8_t) atof(sub_key);
 
             switch (user_input) {
@@ -206,13 +222,20 @@ void ui_config() {
                     Serial.println("Ungültiger Parameter. Wert '1' oder '0' zum Einschalten bzw. Ausschalten.");
                     return;
             }
-            module_memory_save_config();
+            if((retVal = module_memory_save_config()) != MODULE_MEMORY_ERROR_NO_ERROR) {
+                Serial << "Fehler beim Speichern: " << retVal << "\n";
+                return;
+            };
             return;
         }
 
-        if (wifi_debugger_fwVersionCheck()) {
-            wifi_debugger_firmwareUpdate();
-        }
+        config_data.flag_check_update = true;
+        if((retVal = module_memory_save_config()) != MODULE_MEMORY_ERROR_NO_ERROR) {
+            Serial << "Fehler beim Speichern: " << retVal << "\n";
+            return;
+        };
+        Serial.println("ESP32 wird neu gestartet und auf Updates überprüft.");
+        esp_restart();
     }
 
     else {
@@ -294,7 +317,8 @@ void ui_memory() {
                 "WiFi SSID:                               " << config_data.wifi_ssid << "\n" <<
                 "WiFi passwort:                           " << config_data.wifi_pw << "\n" <<
                 "Automatische Updates:                    " << config_data.flag_auto_update << "\n" <<
-                "externes Warnsignal:                     " << config_data.flag_external_warning << '\n' <<
+                "Bei Neustart auf Updates überprüfen:     " << config_data.flag_check_update << "\n" <<
+                "Externes Warnsignal:                     " << config_data.flag_external_warning << '\n' <<
                 "Gehäusesystem kalibriert:                " << config_data.flag_device_calibration_state << '\n' <<
                 "Schiffssystem kalibriert:                " << config_data.flag_ship_calibration_state << '\n' <<
                 "Schwellwert für Bug und Heck             " << config_data.threshold_angle_x[0] << "°, " << config_data.threshold_angle_x[1] << "°\n" <<

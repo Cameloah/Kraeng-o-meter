@@ -19,6 +19,7 @@ MODULE_MEMORY_ERROR_t module_memory_init() {
     strcpy(config_data.wifi_ssid, "");
     strcpy(config_data.wifi_pw, "");
     config_data.flag_auto_update = false;
+    config_data.flag_check_update = false;
     config_data.flag_external_warning = false;
     config_data.flag_device_calibration_state = false;
     config_data.flag_ship_calibration_state = false;
