@@ -23,6 +23,9 @@
 // debug and system control options
 #define SYSCTRL_LOOPTIMER               // enable loop frequency control, remember to also set the loop freq in the loop_timer.h
 
+#define URL_FW_VERSION "https://github.com/Cameloah/Kraeng-o-meter/blob/master/bin_version.txt"
+#define URL_FW_BIN "https://github.com/Cameloah/Kraeng-o-meter/blob/master/.pio/build/esp32dev/firmware.bin"
+
 void setup() {
     delay(1000);
     // Setup serial communication, when pc is connected
@@ -36,12 +39,13 @@ void setup() {
     device_manager_init();
     linalg_core_init();
     display_manager_init();
-    wifi_debugger_init(config_data.wifi_ssid, config_data.wifi_pw);
+    wifi_debugger_init(config_data.wifi_ssid, config_data.wifi_pw, URL_FW_VERSION, URL_FW_BIN);
 
     // if enabled, automatically check for update
-    if (config_data.flag_auto_update)
+    if (config_data.flag_auto_update) {
         if (wifi_debugger_fwVersionCheck())
             wifi_debugger_firmwareUpdate();
+    }
 
     delay(100);
 }
@@ -104,9 +108,7 @@ void loop() {
     }
 
     device_manager_check_warning();
-    Serial.println("debug1");
     display_manager_update();
-    Serial.println("debug2");
     loop_timer++;   // iterate loop timer to track loop frequency
 
 #ifdef SYSCTRL_LOOPTIMER
