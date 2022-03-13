@@ -28,7 +28,7 @@ The following assumptions were formulated, which significantly simplified the ma
 - The measuring range should be around +/- 5° from the initial position, therefore simple pitch and roll angles are sufficient and gimbal lock is irrelevant.
 - The resolution should be at least 0.1°.
 - The rate of changes in tilt angles is comparably low, therefore the calculation is based on the accelleration measurements only. No gyroscope is taken into account.
-- Reaction time can be low, therefore heavy filtering with introduced phaseshift is not an issue.
+- Reaction time can be low, therefore heavy filtering with introduced phaseshift can be used.
 
 ## The Math
 To correctly display the tilt angles in two axies, the device needs to know the ships axies of pitch and roll rotation. To find the correct rotation-matrix, a series of two calibration procedures needs to be perfomed once. the resulting rotation-matrices are multiplied to compute the final rotation-matrix to transform the accelleration measurements from the sensor frame to the ship frame.
