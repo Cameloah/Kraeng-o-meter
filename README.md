@@ -31,7 +31,7 @@ The following assumptions were formulated, which significantly simplified the ma
 - Reaction time can be low, therefore heavy filtering with introduced phaseshift can be used.
 
 ## The Math
-To correctly display the tilt angles in two axies, the device needs to know the ships axies of pitch and roll rotation. To find the correct rotation-matrix, a series of two calibration procedures needs to be perfomed once. the resulting rotation-matrices are multiplied to compute the final rotation-matrix to transform the accelleration measurements from the sensor frame to the ship frame.
+To correctly display the tilt angles in two axies, the device needs to know the ships axies of pitch and roll rotation. To find the correct rotation-matrix, a series of two calibration procedures need to be perfomed once. the resulting rotation-matrices are multiplied to compute the final rotation-matrix to transform the accelleration measurements from the sensor frame to the ship frame.
 
 At this point its worth noting that IMU-libraries that are based on the MPU6050 lib by Jeff Rowberg (e.g. https://github.com/electroniccats/mpu6050?utm_source=platformio&utm_medium=piohome) can pull the fully computed jaw-pitch-roll angles from the MPU6050's internal DMP but in this project I wanted to perfrom these calculations myself, giving me more control about the following two calibration algorithms.
 
