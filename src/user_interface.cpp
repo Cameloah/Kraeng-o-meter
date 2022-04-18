@@ -10,12 +10,14 @@
 #include "module_memory.h"
 #include "device_manager.h"
 #include "linalg_core.h"
+#include "wifi_debugger.h"
 
 bool enable_serial_stream = false;
 bool enable_serial_verbose = false;
-bool enable_measurements = true;
+bool enable_measurements = false;
 
 void ui_config() {
+    MODULE_MEMORY_ERROR_t retVal = MODULE_MEMORY_ERROR_UNKNOWN;
     // extract next word
     char* sub_key = strtok(nullptr, " \n");
 
@@ -95,9 +97,13 @@ void ui_config() {
         }
 
         Serial << "Neigungswinkel-Schwellwert für '" << axis_key << "' auf " << user_input << " gesetzt.\n";
-        module_memory_save_config();
+        if((retVal = module_memory_save_config()) != MODULE_MEMORY_ERROR_NO_ERROR) {
+            Serial << "Fehler beim Speichern: " << retVal << "\n";
+            return;
+        };
     }
 
+    // toggle external warning signal
     else if(!strcmp(sub_key, "--extern")) {
         sub_key = strtok(nullptr, " \n");
         uint8_t user_input = *sub_key - '0';
@@ -105,12 +111,12 @@ void ui_config() {
         switch (user_input) {
             case 1:
                 config_data.flag_external_warning = true;
-                Serial << "Externes Warnsignal eingeschaltet\n";
+                Serial << "Externes Warnsignal eingeschaltet.\n";
                 break;
 
             case 0:
                 config_data.flag_external_warning = false;
-                Serial << "Externes Warnsignal ausgeschaltet\n";
+                Serial << "Externes Warnsignal ausgeschaltet.\n";
                 break;
 
             default:
@@ -118,9 +124,13 @@ void ui_config() {
                 return;
         }
         // save user data
-        module_memory_save_config();
+        if((retVal = module_memory_save_config()) != MODULE_MEMORY_ERROR_NO_ERROR) {
+            Serial << "Fehler beim Speichern: " << retVal << "\n";
+            return;
+        };
     }
 
+    // set filter parameter for sensor data
     else if(!strcmp(sub_key, "--filter")) {
         sub_key = strtok(nullptr, " \n");
         // import float
@@ -128,7 +138,104 @@ void ui_config() {
 
         config_data.filter_mavg_factor = user_input;
         Serial << "Filterhärte auf " << user_input << " gesetzt.\n";
-        module_memory_save_config();
+        if((retVal = module_memory_save_config()) != MODULE_MEMORY_ERROR_NO_ERROR) {
+            Serial << "Fehler beim Speichern: " << retVal << "\n";
+            return;
+        };
+    }
+
+    // configure wifi access
+    else if(!strcmp(sub_key, "--wifi")) {
+        Serial.println("Name/SSID des Netzwerks?");
+
+        // flush serial buffer
+        Serial.readString();
+
+        // listen for user input
+        while (!Serial.available())
+        // wait a bit for transfer of all serial data
+        delay(50);
+
+        String wifi_user_input = Serial.readString();
+        wifi_user_input.trim(); // remove trailing new line character
+
+        if (wifi_user_input.length() > (sizeof (config_data.wifi_ssid) / sizeof (char))) {
+            Serial.println("SSID zu lang!");
+            return;
+        }
+        // save ssid
+        wifi_user_input.toCharArray(config_data.wifi_ssid, (sizeof (config_data.wifi_ssid) / sizeof (char)));
+
+        // ask for password
+        Serial.println("Passwort?");
+
+        // flush serial buffer
+        Serial.readString();
+
+        // listen for user input
+        while (!Serial.available())
+            // wait a bit for transfer of all serial data
+            delay(50);
+
+        wifi_user_input = Serial.readString();
+        wifi_user_input.trim(); // remove trailing new line character
+
+        if (wifi_user_input.length() > (sizeof (config_data.wifi_pw) / sizeof (char))) {
+            Serial.println("Passwort zu lang!");
+            return;
+        }
+        wifi_user_input.toCharArray(config_data.wifi_pw, (sizeof (config_data.wifi_pw) / sizeof (char)));
+
+        Serial << "WiFi-Daten gespeichert. SSID: '" << config_data.wifi_ssid << "', PW: '" << config_data.wifi_pw << "'\n";
+        if((retVal = module_memory_save_config()) != MODULE_MEMORY_ERROR_NO_ERROR) {
+            Serial << "Fehler beim Speichern: " << retVal << "\n";
+            return;
+        };
+    }
+
+    // handle fw updates
+    else if(!strcmp(sub_key, "--update")) {
+        sub_key = strtok(nullptr, " \n");
+
+        if (sub_key == nullptr)
+            strcpy(sub_key, "");
+
+        if(!strcmp(sub_key, "--auto")) {
+            sub_key = strtok(nullptr, " \n");
+            if (sub_key == nullptr)
+                strcpy(sub_key, "");
+
+            auto user_input = (int8_t) atof(sub_key);
+
+            switch (user_input) {
+                case 1:
+                    config_data.flag_auto_update = true;
+                    Serial << "Automatische Updates eingeschaltet.\n";
+                    break;
+
+                case 0:
+                    config_data.flag_auto_update = false;
+                    Serial << "Automatische Updates ausgeschaltet.\n";
+                    break;
+
+                default:
+                    Serial.println("Ungültiger Parameter. Wert '1' oder '0' zum Einschalten bzw. Ausschalten.");
+                    return;
+            }
+            if((retVal = module_memory_save_config()) != MODULE_MEMORY_ERROR_NO_ERROR) {
+                Serial << "Fehler beim Speichern: " << retVal << "\n";
+                return;
+            };
+            return;
+        }
+
+        config_data.flag_check_update = true;
+        if((retVal = module_memory_save_config()) != MODULE_MEMORY_ERROR_NO_ERROR) {
+            Serial << "Fehler beim Speichern: " << retVal << "\n";
+            return;
+        };
+        Serial.println("ESP32 wird neu gestartet und auf Updates überprüft.");
+        esp_restart();
     }
 
     else {
@@ -207,15 +314,19 @@ void ui_memory() {
 
             case MODULE_MEMORY_ERROR_NO_ERROR:
                 Serial << "Konfigurationsdaten aus Speicher: \n" <<
-                          "externes Warnsignal:                     " << config_data.flag_external_warning << '\n' <<
-                          "Gehäusesystem kalibriert:                " << config_data.flag_device_calibration_state << '\n' <<
-                          "Schiffssystem kalibriert:                " << config_data.flag_ship_calibration_state << '\n' <<
-                          "Schwellwert für Bug und Heck             " << config_data.threshold_angle_x[0] << "°, " << config_data.threshold_angle_x[1] << "°\n" <<
-                          "Schwellwert für Backbord und Steuerbord  " << config_data.threshold_angle_y[0] << "°, " << config_data.threshold_angle_y[1] << "°\n" <<
-                          "Filterhärte:                             " << config_data.filter_mavg_factor << '\n' <<
-                          "Ausgabemodus:                            " << config_data.state_mode << '\n' <<
-                          "Gehäuserotationsmatrix R_1_0:            " << config_data.rot_mat_1_0 << '\n' <<
-                          "Schiffsrotationsmatrix R_2_1:            " << config_data.rot_mat_2_1 << '\n';
+                "WiFi SSID:                               " << config_data.wifi_ssid << "\n" <<
+                "WiFi passwort:                           " << config_data.wifi_pw << "\n" <<
+                "Automatische Updates:                    " << config_data.flag_auto_update << "\n" <<
+                "Bei Neustart auf Updates überprüfen:     " << config_data.flag_check_update << "\n" <<
+                "Externes Warnsignal:                     " << config_data.flag_external_warning << '\n' <<
+                "Gehäusesystem kalibriert:                " << config_data.flag_device_calibration_state << '\n' <<
+                "Schiffssystem kalibriert:                " << config_data.flag_ship_calibration_state << '\n' <<
+                "Schwellwert für Bug und Heck             " << config_data.threshold_angle_x[0] << "°, " << config_data.threshold_angle_x[1] << "°\n" <<
+                "Schwellwert für Backbord und Steuerbord  " << config_data.threshold_angle_y[0] << "°, " << config_data.threshold_angle_y[1] << "°\n" <<
+                "Filterhärte:                             " << config_data.filter_mavg_factor << '\n' <<
+                "Ausgabemodus:                            " << config_data.state_mode << '\n' <<
+                "Gehäuserotationsmatrix R_1_0:            " << config_data.rot_mat_1_0 << '\n' <<
+                "Schiffsrotationsmatrix R_2_1:            " << config_data.rot_mat_2_1 << '\n';
                 break;
 
             default:
@@ -281,6 +392,8 @@ void ui_debug() {
 
 void ui_serial_comm_handler() {
     // listen for user input
+    if (Serial.available())
+        delay(50); // wait a bit for transfer of all serial data
     uint8_t rx_available_bytes = Serial.available();
     if (rx_available_bytes > 0) {
         // import entire string until "\n"

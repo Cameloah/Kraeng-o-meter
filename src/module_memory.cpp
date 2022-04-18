@@ -12,17 +12,24 @@
 Preferences mem_handler;
 
 
-MODULE_MEMORY_CONFIG_t config_data = {
-        .flag_external_warning = false,
-        .flag_device_calibration_state = false,
-        .flag_ship_calibration_state = false,
-        .state_mode = 2,
-        .threshold_angle_x = {-2, 2},
-        .threshold_angle_y = {-2, 2},
-        .filter_mavg_factor = 1.0,
-};
+MODULE_MEMORY_CONFIG_t config_data;
 
 MODULE_MEMORY_ERROR_t module_memory_init() {
+    // fill buffer with default values
+    strcpy(config_data.wifi_ssid, "");
+    strcpy(config_data.wifi_pw, "");
+    config_data.flag_auto_update = false;
+    config_data.flag_check_update = false;
+    config_data.flag_external_warning = false;
+    config_data.flag_device_calibration_state = false;
+    config_data.flag_ship_calibration_state = false;
+    config_data.state_mode = 2;
+    config_data.threshold_angle_x[0] = -2;
+    config_data.threshold_angle_x[1] = 2;
+    config_data.threshold_angle_y[0] = -2;
+    config_data.threshold_angle_y[1] = 2;
+    config_data.filter_mavg_factor = 1.0;
+
     // move into directory, create if not existent
     uint8_t timer_init = 0;
     while (!mem_handler.begin("Config", false)) {

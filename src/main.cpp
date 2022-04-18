@@ -8,10 +8,13 @@
 #include "display_manager.h"
 #include "module_memory.h"
 #include "user_interface.h"
+#include "wifi_debugger.h"
 
 
 
 /* Changelog:
+- 1.0.1 minor improvements such as ability to cancel calibration procedure
+        and several minor bugfixes
 - 1.0.0 basic readout adapted from adafruit mpu6050 example
         display data and interface via serial comm
         calculates rot matrices from sensor to device housing and from device to ship during calibration
@@ -19,6 +22,9 @@
 
 // debug and system control options
 #define SYSCTRL_LOOPTIMER               // enable loop frequency control, remember to also set the loop freq in the loop_timer.h
+
+#define URL_FW_VERSION "https://github.com/Cameloah/Kraeng-o-meter/blob/master/bin_version.txt"
+#define URL_FW_BIN "https://github.com/Cameloah/Kraeng-o-meter/blob/master/.pio/build/esp32dev/firmware.bin"
 
 void setup() {
     delay(1000);
@@ -30,9 +36,38 @@ void setup() {
     // initialize modules
     if (module_memory_init() != MODULE_MEMORY_ERROR_NO_ERROR)
         Serial.println("Error initializing memory module.");
-    device_manager_init();
-    linalg_core_init();
-    display_manager_init();
+
+    module_memory_load_config();
+
+    // only enable wifi when necessary
+    if (config_data.flag_check_update) {
+        //update routine
+        Serial.println("In Update-Modus gestartet.");
+        wifi_debugger_init(config_data.wifi_ssid, config_data.wifi_pw, URL_FW_VERSION, URL_FW_BIN);
+        if (wifi_debugger_fwVersionCheck())
+            wifi_debugger_firmwareUpdate();
+        // reset flag
+        config_data.flag_check_update = false;
+        module_memory_save_config();
+        // restarting esp
+        delay(3000);
+        Serial.println("ESP32 wird neu gestartet.");
+        esp_restart();
+    }
+
+    else {
+        // normal startup
+        Serial.println("In Normal-Modus gestartet.");
+        device_manager_init();
+        linalg_core_init();
+        display_manager_init();
+        // if enabled, set flag to automatically check for update upon next restart
+        if (config_data.flag_auto_update) {
+            config_data.flag_check_update = true;
+            module_memory_save_config();
+        }
+    }
+
 
     delay(100);
 }
@@ -96,7 +131,6 @@ void loop() {
 
     device_manager_check_warning();
     display_manager_update();
-
     loop_timer++;   // iterate loop timer to track loop frequency
 
 #ifdef SYSCTRL_LOOPTIMER
