@@ -44,8 +44,10 @@ void loop() {
     ui_serial_comm_handler();
 
     // calculate angles
+    Matrix<3> data_sensor_raw;
     if (enable_measurements)
-        calculate_tiltangle_x_y(device_manager_get_accel_raw(), angles_x_y);
+        data_sensor_raw = device_manager_get_accel_raw();
+    calculate_tiltangle_x_y(data_sensor_raw, angles_x_y);
 
     if (enable_serial_stream) {
         switch (config_data.state_mode) {
@@ -86,8 +88,11 @@ void loop() {
         Serial << "Neigung um Achse X: " << angles_x_y[0] << "°, Y: " << angles_x_y[1] << "° ";
 
         if (enable_serial_verbose) {
+            Serial << "Raw sensor data: " << data_sensor_raw << " m/s, ";
+
 #ifdef SYSCTRL_LOOPTIMER
             Serial << "Main loop freq: " << loop_timer_get_loop_freq() << "Hz ";
+            loop_timer++;   // iterate loop timer to track loop frequency
 #endif
         }
 
@@ -96,8 +101,6 @@ void loop() {
 
     device_manager_check_warning();
     display_manager_update();
-
-    loop_timer++;   // iterate loop timer to track loop frequency
 
 #ifdef SYSCTRL_LOOPTIMER
     // keep loop at constant cycle frequency
