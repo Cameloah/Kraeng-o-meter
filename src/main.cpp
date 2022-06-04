@@ -47,12 +47,12 @@ void setup() {
         if (wifi_debugger_fwVersionCheck())
             wifi_debugger_firmwareUpdate();
         // reset flag
-        config_data.flag_check_update = false;
+        // config_data.flag_check_update = false;
         module_memory_save_config();
         // restarting esp
         delay(3000);
         Serial.println("ESP32 wird neu gestartet.");
-        esp_restart();
+        // esp_restart();
     }
 
     else {
