@@ -23,14 +23,15 @@ void ui_config() {
 
     if (sub_key == nullptr) {
         Serial << "\nUngültiger Parameter. Mindestens einer der folgenden Parameter fehlt:\n" <<
-            "konfiguriere -r [Koordinatensystem]              - Kalibrieren des Koordinatensystems. '1' für Gehäusekalibrierung und '2' für Schiffskalibrierung\n" <<
-            "             -s ['b' 'h' 'bb' or 'stb'] [Wert]   - Setzen des eingegebenen Werts als Neigungswinkel-Schwellwert für Bug,\n" <<
-            "                                                   Heck, Backbord oder Steuerbord des Schiffes\n" <<
-            "                                        --auto   - speichere aktuellen Neigungswinkel als Schwellwert für Bug, Heck\n" <<
-            "                                                   Backbord oder Steuerbord des Schiffes\n" <<
-            "             --extern [Wert]                     - aktiviere/deaktiviere externes Alarmsignal\n" <<
-            "             --filter [Wert]                     - Filterhärte, ein kleinerer Wert verstärkt den Tiefpassfilter und erzeugt mehr Robustheit,\n"
-            "                                                   aber verlangsamt die Reaktionszeit des Geräts. Standardwert: 1.0\n\n";
+            "konfiguriere -r [Koordinatensystem] --auto         - Kalibrieren des Koordinatensystems. '1' für Gehäusekalibrierung und '2' für Schiffskalibrierung\n" <<
+            "                                    [matrix]       - Manuelles eingeben der Rotationsmatrizen im Format [[x,x,x],[x,x,x],[x,x,x]]\n" <<
+            "             -s ['b' 'h' 'bb' oder 'stb'] [Wert]   - Setzen des eingegebenen Werts als Neigungswinkel-Schwellwert für Bug,\n" <<
+            "                                                     Heck, Backbord oder Steuerbord des Schiffes\n" <<
+            "                                          --auto   - speichere aktuellen Neigungswinkel als Schwellwert für Bug, Heck\n" <<
+            "                                                     Backbord oder Steuerbord des Schiffes\n" <<
+            "             --extern [Wert]                       - aktiviere/deaktiviere externes Alarmsignal\n" <<
+            "             --filter [Wert]                       - Filterhärte, ein kleinerer Wert verstärkt den Tiefpassfilter und erzeugt mehr Robustheit,\n"
+            "                                                     aber verlangsamt die Reaktionszeit des Geräts. Standardwert: 1.0\n\n";
         return;
     }
 
@@ -38,17 +39,49 @@ void ui_config() {
     if (!strcmp(sub_key, "-r")) {
         // convert to int
         sub_key = strtok(nullptr, " \n");
-        auto calib_mode = (int8_t) atof(sub_key);
-        switch (calib_mode) {
-            case 1:
-                calibrate_device();
-                break;
-            case 2:
-                calibrate_ship();
-                break;
-            default:
-                Serial.println("\nUnbekannter Modus. Kalibrierungsmodi sind '1' für Gehäusekalibrierung und '2' für Schiffskalibrierung.");
+        auto index_rotmat = (int8_t) atof(sub_key);
+
+        // get user intention
+        sub_key = strtok(nullptr, " \n");
+        if(sub_key == nullptr)
+        {
+            Serial.println("\nEs muss ein Wert übergeben werden.");
+            return;
         }
+
+        // do auto calibration
+        if (!strcmp(sub_key, "--auto")) {
+            switch (index_rotmat) {
+                case 1:
+                    calibrate_device();
+                    break;
+                case 2:
+                    calibrate_ship();
+                    break;
+                default:
+                    Serial.println(
+                            "\nUnbekannter Modus. Kalibrierungsmodi sind '1' für Gehäusekalibrierung und '2' für Schiffskalibrierung.");
+            }
+            return;
+        }
+
+        char* input_rotmat = strtok(sub_key, "[], \n");
+        for (int i = 0; i < 3; ++i) {
+            for (int j = 0; j < 3; ++j) {
+                if(input_rotmat == nullptr) {
+                    Serial.println("Unzulässige Werte");
+                    return;
+                }
+                if (index_rotmat == 1)
+                    config_data.rot_mat_1_0(i, j) = atof(input_rotmat);
+                else
+                    config_data.rot_mat_2_1(i, j) = atof(input_rotmat);
+                input_rotmat = strtok(nullptr, "[], \n");
+            }
+        }
+
+        if(module_memory_save_config() == MODULE_MEMORY_ERROR_NO_ERROR)
+            Serial.println("Erfolgreich abgespeichert.");
     }
 
     // set thresholds
@@ -87,12 +120,10 @@ void ui_config() {
 
         else {
             Serial << "\nUngültiger Richtungsparameter. Der Syntax ist:\n" <<
-                   "konfiguriere -s ['b' 'h' 'bb' or 'stb'] [Wert]   - Setzen des eingegebenen Werts als Neigungswinkel-Schwellwert für Bug,\n"
-                   <<
-                   "                                                   Heck, Backbord oder Steuerbord des Schiffes\n" <<
-                   "                                        --auto   - speichere aktuellen Neigungswinkel als Schwellwert für Bug, Heck\n"
-                   <<
-                   "                                                   Backbord oder Steuerbord des Schiffes\n\n";
+                   "konfiguriere -s ['b' 'h' 'bb' oder 'stb'] [Wert]   - Setzen des eingegebenen Werts als Neigungswinkel-Schwellwert für Bug,\n" <<
+                   "                                                     Heck, Backbord oder Steuerbord des Schiffes\n" <<
+                   "                                          --auto   - speichere aktuellen Neigungswinkel als Schwellwert für Bug, Heck\n" <<
+                   "                                                     Backbord oder Steuerbord des Schiffes\n\n";
             return;
         }
 
@@ -240,14 +271,15 @@ void ui_config() {
 
     else {
         Serial << "\nUngültiger Parameter. Mindestens einer der folgenden Parameter fehlt:\n" <<
-        "konfiguriere -r [Koordinatensystem]              - Kalibrieren des Koordinatensystems. '1' für Gehäusekalibrierung und '2' für Schiffskalibrierung\n" <<
-        "             -s ['b' 'h' 'bb' or 'stb'] [Wert]   - Setzen des eingegebenen Werts als Neigungswinkel-Schwellwert für Bug,\n" <<
-        "                                                   Heck, Backbord oder Steuerbord des Schiffes\n" <<
-        "                                        --auto   - speichere aktuellen Neigungswinkel als Schwellwert für Bug, Heck\n" <<
-        "                                                   Backbord oder Steuerbord des Schiffes\n" <<
-        "             --extern [Wert]                     - aktiviere/deaktiviere externes Alarmsignal\n" <<
-        "             --filter [Wert]                     - Filterhärte, ein kleinerer Wert verstärkt den Tiefpassfilter und erzeugt mehr Robustheit,\n"
-        "                                                   aber verlangsamt die Reaktionszeit des Geräts. Standardwert: 1.0\n\n";
+        "konfiguriere -r [Koordinatensystem] --auto         - Kalibrieren des Koordinatensystems. '1' für Gehäusekalibrierung und '2' für Schiffskalibrierung\n" <<
+        "                                    [matrix]       - Manuelles eingeben der Rotationsmatrizen im Format [[x,x,x],[x,x,x],[x,x,x]]\n" <<
+        "             -s ['b' 'h' 'bb' oder 'stb'] [Wert]   - Setzen des eingegebenen Werts als Neigungswinkel-Schwellwert für Bug,\n" <<
+        "                                                     Heck, Backbord oder Steuerbord des Schiffes\n" <<
+        "                                          --auto   - speichere aktuellen Neigungswinkel als Schwellwert für Bug, Heck\n" <<
+        "                                                     Backbord oder Steuerbord des Schiffes\n" <<
+        "             --extern [Wert]                       - aktiviere/deaktiviere externes Alarmsignal\n" <<
+        "             --filter [Wert]                       - Filterhärte, ein kleinerer Wert verstärkt den Tiefpassfilter und erzeugt mehr Robustheit,\n"
+        "                                                     aber verlangsamt die Reaktionszeit des Geräts. Standardwert: 1.0\n\n";
     }
 }
 
@@ -427,18 +459,19 @@ void ui_serial_comm_handler() {
 
         else if (!strcmp(rx_command_key, "hilfe")) {
             Serial << "\nListe der verfügbaren Befehle:\n" <<
-                    "konfiguriere -r [Koordinatensystem]              - Kalibrieren des Koordinatensystems. '1' für Gehäusekalibrierung und '2' für Schiffskalibrierung\n" <<
-                    "             -s ['b' 'h' 'bb' or 'stb'] [Wert]   - Setzen des eingegebenen Werts als Neigungswinkel-Schwellwert für Bug,\n" <<
-                    "                                                   Heck, Backbord oder Steuerbord des Schiffes\n" <<
-                    "                                        --auto   - speichere aktuellen Neigungswinkel als Schwellwert für Bug, Heck\n" <<
-                    "                                                   Backbord oder Steuerbord des Schiffes\n" <<
-                    "             --extern [Wert]                     - aktiviere/deaktiviere externes Alarmsignal\n" <<
-                    "             --filter [Wert]                     - Filterhärte, ein kleinerer Wert verstärkt den Tiefpassfilter und erzeugt mehr Robustheit,\n"
-                    "                                                   aber verlangsamt die Reaktionszeit des Geräts. Standardwert: 1.0\n\n" <<
-                    "stream [Option]                                  - Starten und Stoppen des Datenstreams über USB mit '--start' oder '--stop'\n\n" <<
-                    "modus [Koordinatensystem]                        - Ändern des Ausgabemodus. Modi sind '0' für Sensor-, '1' für Geräte- und '2' für Schiffskoordinatensystem\n\n" <<
-                    "speicher [Option]                                - Zugriff auf gespeicherte Einstellungen über '--alles', zurücksetzen ALLER Einstellungen mit '--löschen'\n\n" <<
-                    "info                                             - Rückgabe der Geräteinformationen wie z.b. der Firmware-Version\n\n";
+                    "konfiguriere -r [Koordinatensystem] --auto         - Kalibrieren des Koordinatensystems. '1' für Gehäusekalibrierung und '2' für Schiffskalibrierung\n" <<
+                    "                                    [matrix]       - Manuelles eingeben der Rotationsmatrizen im Format [[x,x,x],[x,x,x],[x,x,x]]\n" <<
+                    "             -s ['b' 'h' 'bb' oder 'stb'] [Wert]   - Setzen des eingegebenen Werts als Neigungswinkel-Schwellwert für Bug,\n" <<
+                    "                                                     Heck, Backbord oder Steuerbord des Schiffes\n" <<
+                    "                                          --auto   - Speichere aktuellen Neigungswinkel als Schwellwert für Bug, Heck\n" <<
+                    "                                                     Backbord oder Steuerbord des Schiffes\n" <<
+                    "             --extern [Wert]                       - aktiviere/deaktiviere externes Alarmsignal\n" <<
+                    "             --filter [Wert]                       - Filterhärte, ein kleinerer Wert verstärkt den Tiefpassfilter und erzeugt mehr Robustheit,\n"
+                    "                                                     aber verlangsamt die Reaktionszeit des Geräts. Standardwert: 1.0\n\n" <<
+                    "stream [Option]                                    - Starten und Stoppen des Datenstreams über USB mit '--start' oder '--stop'\n\n" <<
+                    "modus [Koordinatensystem]                          - Ändern des Ausgabemodus. Modi sind '0' für Sensor-, '1' für Geräte- und '2' für Schiffskoordinatensystem\n\n" <<
+                    "speicher [Option]                                  - Zugriff auf gespeicherte Einstellungen über '--alles', zurücksetzen ALLER Einstellungen mit '--löschen'\n\n" <<
+                    "info                                               - Rückgabe der Geräteinformationen wie z.b. der Firmware-Version\n\n";
         }
 
         else {
