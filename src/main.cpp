@@ -9,26 +9,28 @@
 #include "module_memory.h"
 #include "user_interface.h"
 #include "wifi_debugger.h"
+#include "version.h"
 
 
 
 /* Changelog:
-- 1.0.1 minor improvements such as ability to cancel calibration procedure
-        and several minor bugfixes
-- 1.0.0 basic readout adapted from adafruit mpu6050 example
-        display data and interface via serial comm
-        calculates rot matrices from sensor to device housing and from device to ship during calibration
+ * - 1.1.0 ability to update firmware automatically from github
+ * - 1.0.1 minor improvements such as ability to cancel calibration procedure
+ *      and several minor bugfixes
+ * - 1.0.0 basic readout adapted from adafruit mpu6050 example
+ *      display data and interface via serial comm
+ *      calculates rot matrices from sensor to device housing and from device to ship during calibration
 */
 
 // debug and system control options
 #define SYSCTRL_LOOPTIMER               // enable loop frequency control, remember to also set the loop freq in the loop_timer.h
 
-#define URL_FW_VERSION "https://raw.githubusercontent.com/Cameloah/Kraeng-o-meter/master/bin_version.txt"
-#define URL_FW_BIN "https://github.com/Cameloah/Kraeng-o-meter/blob/master/.pio/build/esp32dev/firmware.bin"
+#define URL_FW_VERSION "https://github.com/Cameloah/Kraeng-o-meter/releases/latest"
+#define URL_FW_BIN "https://github.com/Cameloah/Kraeng-o-meter/releases/download/<version>/kraengometer_<version>.bin"
 
 void setup() {
     delay(1000);
-    // Setup serial communication, when pc is connected
+    // Setup serial communication
     Serial.begin(115200);
 
     ui_info();
@@ -44,7 +46,7 @@ void setup() {
         //update routine
         Serial.println("In Update-Modus gestartet.");
         wifi_debugger_init(config_data.wifi_ssid, config_data.wifi_pw, URL_FW_VERSION, URL_FW_BIN);
-        if (wifi_debugger_fwVersionCheck())
+        if (wifi_debugger_fwVersionCheck(FW_VERSION_MAJOR, FW_VERSION_MINOR, FW_VERSION_PATCH))
             wifi_debugger_firmwareUpdate();
         // reset flag
         // config_data.flag_check_update = false;
@@ -52,7 +54,7 @@ void setup() {
         // restarting esp
         delay(3000);
         Serial.println("ESP32 wird neu gestartet.");
-        // esp_restart();
+        esp_restart();
     }
 
     else {
