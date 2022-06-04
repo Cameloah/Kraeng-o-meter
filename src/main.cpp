@@ -23,7 +23,7 @@
 // debug and system control options
 #define SYSCTRL_LOOPTIMER               // enable loop frequency control, remember to also set the loop freq in the loop_timer.h
 
-#define URL_FW_VERSION "https://github.com/Cameloah/Kraeng-o-meter/blob/master/bin_version.txt"
+#define URL_FW_VERSION "https://raw.githubusercontent.com/Cameloah/Kraeng-o-meter/master/bin_version.txt"
 #define URL_FW_BIN "https://github.com/Cameloah/Kraeng-o-meter/blob/master/.pio/build/esp32dev/firmware.bin"
 
 void setup() {
