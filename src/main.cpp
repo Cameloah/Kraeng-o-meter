@@ -25,9 +25,6 @@
 // debug and system control options
 #define SYSCTRL_LOOPTIMER               // enable loop frequency control, remember to also set the loop freq in the loop_timer.h
 
-#define URL_FW_VERSION "https://github.com/Cameloah/Kraeng-o-meter/releases/latest"
-#define URL_FW_BIN "https://github.com/Cameloah/Kraeng-o-meter/releases/download/<version>/kraengometer_<version>.bin"
-
 void setup() {
     delay(1000);
     // Setup serial communication
@@ -45,12 +42,13 @@ void setup() {
     if (config_data.flag_check_update) {
         //update routine
         Serial.println("In Update-Modus gestartet.");
+        // reset flag
+        config_data.flag_check_update = false;
+        module_memory_save_config();
+
         wifi_debugger_init(config_data.wifi_ssid, config_data.wifi_pw, URL_FW_VERSION, URL_FW_BIN);
         if (wifi_debugger_fwVersionCheck(FW_VERSION_MAJOR, FW_VERSION_MINOR, FW_VERSION_PATCH))
             wifi_debugger_firmwareUpdate();
-        // reset flag
-        // config_data.flag_check_update = false;
-        module_memory_save_config();
         // restarting esp
         delay(3000);
         Serial.println("ESP32 wird neu gestartet.");
