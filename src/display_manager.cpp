@@ -26,9 +26,9 @@ void display_manager_init() {
     gfx->begin();
     gfx->fillScreen(BLACK);
 
+    sprite_total.setColorDepth(8);
     sprite_total.createSprite(240, 240);
     sprite_total.setSwapBytes(true); // Swap the byte order for pushImage() - corrects endianness
-    sprite_total.setColorDepth(4);
 }
 
 int16_t center(int16_t data) {
@@ -180,5 +180,21 @@ void display_manager_update() {
         return;
     }
 
-    // gfx->draw16bitRGBBitmap(0, 0, (uint16_t*) sprite_total.getPointer(), 240, 320);
+    uint8_t* bitmap = (uint8_t*) sprite_total.getPointer();
+    int32_t offset = 0;
+    gfx->startWrite();
+
+    uint8_t x = 0;
+    uint8_t y = 0;
+    uint16_t w = 240;
+    uint16_t h = 320;
+
+    for (int16_t j = 0; j < h; j++, y++)
+    {
+        for (int16_t i = 0; i < w; i++)
+        {
+            gfx->writePixel(x + i, y, sprite_total.color8to16(bitmap[offset++]));
+        }
+    }
+    gfx->endWrite();
 }
