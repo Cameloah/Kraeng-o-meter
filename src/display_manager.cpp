@@ -28,7 +28,7 @@ void display_manager_init() {
 
     sprite_total.createSprite(240, 240);
     sprite_total.setSwapBytes(true); // Swap the byte order for pushImage() - corrects endianness
-    sprite_total.setColorDepth(16);
+    sprite_total.setColorDepth(4);
 }
 
 int16_t center(int16_t data) {
@@ -176,9 +176,9 @@ void display_manager_update() {
 
 
     if(sprite_total.getPointer() == nullptr) {
-        // Serial.println("Nullpointer for display data");
+        Serial.println("Nullpointer for display data");
         return;
     }
 
-    gfx->draw16bitRGBBitmap(0, 0, (uint16_t*) sprite_total.getPointer(), 240, 320);
+    // gfx->draw16bitRGBBitmap(0, 0, (uint16_t*) sprite_total.getPointer(), 240, 320);
 }
