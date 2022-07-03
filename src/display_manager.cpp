@@ -187,7 +187,7 @@ void display_manager_update() {
     uint8_t x = 0;
     uint8_t y = 0;
     uint16_t w = 240;
-    uint16_t h = 320;
+    uint16_t h = 240;
 
     for (int16_t j = 0; j < h; j++, y++)
     {
