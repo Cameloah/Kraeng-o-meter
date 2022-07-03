@@ -35,10 +35,6 @@ int16_t center(int16_t data) {
     return DISPLAY_MANAGER_DISPLAY_SIZE / 2 + data;
 }
 
-uint16_t change_endianness(const uint16_t color) {
-    return (color>>8) | (color<<8);
-}
-
 void drawRing(int32_t x_center, int32_t y_center, int32_t r_i, int32_t r_o, uint32_t color) {
     int32_t x_o, x_i;
     // iterate through y
@@ -88,10 +84,10 @@ void display_manager_2dframe() {
     sprite_total.drawFastVLine(DISPLAY_MANAGER_CENTER_X, 0, DISPLAY_MANAGER_DISPLAY_SIZE, TFT_WHITE);
 
     // draw dot description
-    sprite_total.drawFastHLine(center(0), center(pos_dot_y), pos_dot_x, change_endianness(TFT_SILVER));
-    sprite_total.drawFastVLine(center(pos_dot_x), center(0), pos_dot_y, change_endianness(TFT_SILVER));
-    sprite_total.drawFastHLine(center(pos_dot_x), center(pos_dot_y), -pos_dot_x, change_endianness(TFT_SILVER));
-    sprite_total.drawFastVLine(center(pos_dot_x), center(pos_dot_y), -pos_dot_y, change_endianness(TFT_SILVER));
+    sprite_total.drawFastHLine(center(0), center(pos_dot_y), pos_dot_x, TFT_SILVER);
+    sprite_total.drawFastVLine(center(pos_dot_x), center(0), pos_dot_y, TFT_SILVER);
+    sprite_total.drawFastHLine(center(pos_dot_x), center(pos_dot_y), -pos_dot_x, TFT_SILVER);
+    sprite_total.drawFastVLine(center(pos_dot_x), center(pos_dot_y), -pos_dot_y, TFT_SILVER);
 
     int y_desc_start_x = pos_dot_x > 0 ? -ART_2DFRAME_DESC_DISTANCE_X : 10;
     int y_desc_start_y;
@@ -122,33 +118,33 @@ void display_manager_2dframe() {
         x_desc_start_x = -ART_2DFRAME_DESC_X_LIMIT;
 
 
-    sprite_total.setTextColor(change_endianness(color_angle_y));
+    sprite_total.setTextColor(color_angle_y);
     sprite_total.setCursor(center(x_desc_start_x), center(x_desc_start_y), 4);
     sprite_total.print(angles_x_y[1], 1);
     sprite_total.setCursor(sprite_total.getCursorX(), center(x_desc_start_y + 4 - sprite_total.fontHeight(4) / 2), 2);
     sprite_total.print(" o");
 
-    sprite_total.setTextColor(change_endianness(color_angle_x));
+    sprite_total.setTextColor(color_angle_x);
     sprite_total.setCursor(center(y_desc_start_x), center(y_desc_start_y), 4);
     sprite_total.print(angles_x_y[0], 1);
     sprite_total.setCursor(sprite_total.getCursorX(), center(y_desc_start_y + 4 - sprite_total.fontHeight(4) / 2), 2);
     sprite_total.print(" o");
 
     // draw threshold markers
-    sprite_total.drawRect(center(-10), center(pos_thr_y[0]), 20, 2, change_endianness(RED));
-    sprite_total.drawRect(center(-10), center(pos_thr_y[1]), 20, 2, change_endianness(RED));
-    sprite_total.drawRect(center(pos_thr_x[0]), center(-10), 2, 20, change_endianness(RED));
-    sprite_total.drawRect(center(pos_thr_x[1]), center(-10), 2, 20, change_endianness(RED));
+    sprite_total.drawRect(center(-10), center(pos_thr_y[0]), 20, 2, RED);
+    sprite_total.drawRect(center(-10), center(pos_thr_y[1]), 20, 2, RED);
+    sprite_total.drawRect(center(pos_thr_x[0]), center(-10), 2, 20, RED);
+    sprite_total.drawRect(center(pos_thr_x[1]), center(-10), 2, 20, RED);
 
     // draw dot
-    sprite_total.fillCircle(center(pos_dot_x), center(pos_dot_y), 10, change_endianness(RED));
+    sprite_total.fillCircle(center(pos_dot_x), center(pos_dot_y), 10, RED);
 }
 
 uint32_t counter_warning_blink = 0;
 void display_manager_alarm() {
     if (flag_threshold_violation_angle_x || flag_threshold_violation_angle_y) {
         if (counter_warning_blink <= FREQ_LOOP_CYCLE_HZ / DISPLAY_MANAGER_WARING_BLINK_FREQ) {
-            drawRing(center(0), center(0), 110, 120, change_endianness(RED));
+            drawRing(center(0), center(0), 110, 120, RED);
             if (flag_threshold_violation_angle_x)
                 color_angle_x = RED;
             if (flag_threshold_violation_angle_y)
