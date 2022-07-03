@@ -34,8 +34,8 @@ void ui_config() {
             "                                                     aber verlangsamt die Reaktionszeit des Geräts. Standardwert: 1.0\n"
             "             --wifi                                - konfigurieren des WLAN Netzwerknamens (SSID) und des Passworts\n"
             "             --update                              - einmaliges Überprüfen auf Updates\n"
-            "                      ['1' oder '0']               - Automatisches Überprüfen auf Updates beim Starten ein oder ausschalten\n"
-            "                      -- version [v#.#.#]          - Auf spezifische Version updaten, wenn verfügbar\n\n";
+            "                      --auto ['1' oder '0']        - Automatisches Überprüfen auf Updates beim Starten ein oder ausschalten\n"
+            "                      --version [v#.#.#]           - Auf spezifische Version updaten, wenn verfügbar\n\n";
         return;
     }
 
@@ -298,8 +298,8 @@ void ui_config() {
         "                                                     aber verlangsamt die Reaktionszeit des Geräts. Standardwert: 1.0\n"
         "             --wifi                                - konfigurieren des WLAN Netzwerknamens (SSID) und des Passworts\n"
         "             --update                              - einmaliges Überprüfen auf Updates\n"
-        "                      ['1' oder '0']               - Automatisches Überprüfen auf Updates beim Starten ein oder ausschalten\n"
-        "                      -- version [v#.#.#]          - Auf spezifische Version updaten, wenn verfügbar\n\n";
+        "                      --auto ['1' oder '0']        - Automatisches Überprüfen auf Updates beim Starten ein oder ausschalten\n"
+        "                      --version [v#.#.#]           - Auf spezifische Version updaten, wenn verfügbar\n\n";
     }
 }
 
@@ -490,8 +490,8 @@ void ui_serial_comm_handler() {
                     "                                                     aber verlangsamt die Reaktionszeit des Geräts. Standardwert: 1.0\n"
                     "             --wifi                                - konfigurieren des WLAN Netzwerknamens (SSID) und des Passworts\n"
                     "             --update                              - einmaliges Überprüfen auf Updates\n"
-                    "                      ['1' oder '0']               - Automatisches Überprüfen auf Updates beim Starten ein oder ausschalten\n"
-                    "                      -- version [v#.#.#]          - Auf spezifische Version updaten, wenn verfügbar\n\n"
+                    "                      --auto ['1' oder '0']        - Automatisches Überprüfen auf Updates beim Starten ein oder ausschalten\n"
+                    "                      --version [v#.#.#]           - Auf spezifische Version updaten, wenn verfügbar\n\n"
                     "stream [Option]                                    - Starten und Stoppen des Datenstreams über USB mit '--start' oder '--stop'\n\n" <<
                     "modus [Koordinatensystem]                          - Ändern des Ausgabemodus. Modi sind '0' für Sensor-, '1' für Geräte- und '2' für Schiffskoordinatensystem\n\n" <<
                     "speicher [Option]                                  - Zugriff auf gespeicherte Einstellungen über '--alles', zurücksetzen ALLER Einstellungen mit '--löschen'\n\n" <<
