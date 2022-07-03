@@ -11,6 +11,9 @@
 
 Preferences mem_handler;
 
+// TODO: add legacy config data format and read fct to transition from old set to new set
+// TODO: change to SPIFFS and jsons and make module generalized. json file name as input from user --> new json instance
+//       for every new file name, user inputs json keys, module loads json and returns data per key
 
 MODULE_MEMORY_CONFIG_t config_data;
 
