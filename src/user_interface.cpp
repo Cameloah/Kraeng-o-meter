@@ -398,8 +398,15 @@ void ui_memory() {
                 "speicher [Option]       - Zugriff auf gespeicherte Einstellungen über '--alles', zurücksetzen ALLER Einstellungen mit '--löschen'\n\n";
 }
 
-void ui_info() {
-    Serial << "Kräng-o-meter Version " << FW_VERSION_MAJOR << "." << FW_VERSION_MINOR << "." << FW_VERSION_PATCH << "\n";
+String ui_info() {
+    String fw_version = "Kraeng-o-Meter Version: ";
+    fw_version.concat(FW_VERSION_MAJOR);
+    fw_version.concat(".");
+    fw_version.concat(FW_VERSION_MINOR);
+    fw_version.concat(".");
+    fw_version.concat(FW_VERSION_PATCH);
+    Serial << fw_version.c_str();
+    return fw_version;
 }
 
 void ui_debug() {
