@@ -31,7 +31,11 @@ void ui_config() {
             "                                                     Backbord oder Steuerbord des Schiffes\n" <<
             "             --extern [Wert]                       - aktiviere/deaktiviere externes Alarmsignal\n" <<
             "             --filter [Wert]                       - Filterhärte, ein kleinerer Wert verstärkt den Tiefpassfilter und erzeugt mehr Robustheit,\n"
-            "                                                     aber verlangsamt die Reaktionszeit des Geräts. Standardwert: 1.0\n\n";
+            "                                                     aber verlangsamt die Reaktionszeit des Geräts. Standardwert: 1.0\n"
+            "             --wifi                                - konfigurieren des WLAN Netzwerknamens (SSID) und des Passworts\n"
+            "             --update                              - einmaliges Überprüfen auf Updates\n"
+            "                      --auto ['1' oder '0']        - Automatisches Überprüfen auf Updates beim Starten ein oder ausschalten\n"
+            "                      --version [v#.#.#]           - Auf spezifische Version updaten, wenn verfügbar\n\n";
         return;
     }
 
@@ -241,11 +245,13 @@ void ui_config() {
             switch (user_input) {
                 case 1:
                     config_data.flag_auto_update = true;
+                    config_data.flag_check_update = true;
                     Serial << "Automatische Updates eingeschaltet.\n";
                     break;
 
                 case 0:
                     config_data.flag_auto_update = false;
+                    config_data.flag_check_update = false;
                     Serial << "Automatische Updates ausgeschaltet.\n";
                     break;
 
@@ -253,10 +259,20 @@ void ui_config() {
                     Serial.println("Ungültiger Parameter. Wert '1' oder '0' zum Einschalten bzw. Ausschalten.");
                     return;
             }
-            if((retVal = module_memory_save_config()) != MODULE_MEMORY_ERROR_NO_ERROR) {
+            if((retVal = module_memory_save_config()) != MODULE_MEMORY_ERROR_NO_ERROR)
                 Serial << "Fehler beim Speichern: " << retVal << "\n";
-                return;
-            };
+            return;
+        }
+
+        else if (!strcmp(sub_key, "--version")) {
+
+            sub_key = strtok(nullptr, " \n");
+            config_data.flag_check_update = false;
+            if((retVal = module_memory_save_config()) != MODULE_MEMORY_ERROR_NO_ERROR)
+                Serial << "Fehler beim Speichern: " << retVal << "\n";
+            wifi_debugger_init(config_data.wifi_ssid, config_data.wifi_pw, URL_FW_VERSION, URL_FW_BIN);
+            wifi_debugger_firmwareUpdate(sub_key);
+            Serial.println("Update fehlgeschlagen.");
             return;
         }
 
@@ -279,7 +295,11 @@ void ui_config() {
         "                                                     Backbord oder Steuerbord des Schiffes\n" <<
         "             --extern [Wert]                       - aktiviere/deaktiviere externes Alarmsignal\n" <<
         "             --filter [Wert]                       - Filterhärte, ein kleinerer Wert verstärkt den Tiefpassfilter und erzeugt mehr Robustheit,\n"
-        "                                                     aber verlangsamt die Reaktionszeit des Geräts. Standardwert: 1.0\n\n";
+        "                                                     aber verlangsamt die Reaktionszeit des Geräts. Standardwert: 1.0\n"
+        "             --wifi                                - konfigurieren des WLAN Netzwerknamens (SSID) und des Passworts\n"
+        "             --update                              - einmaliges Überprüfen auf Updates\n"
+        "                      --auto ['1' oder '0']        - Automatisches Überprüfen auf Updates beim Starten ein oder ausschalten\n"
+        "                      --version [v#.#.#]           - Auf spezifische Version updaten, wenn verfügbar\n\n";
     }
 }
 
@@ -378,8 +398,15 @@ void ui_memory() {
                 "speicher [Option]       - Zugriff auf gespeicherte Einstellungen über '--alles', zurücksetzen ALLER Einstellungen mit '--löschen'\n\n";
 }
 
-void ui_info() {
-    Serial << "Kräng-o-meter Version " << FW_VERSION_MAJOR << "." << FW_VERSION_MINOR << "." << FW_VERSION_PATCH << "\n";
+String ui_info() {
+    String fw_version = "Kraeng-o-Meter Version: ";
+    fw_version.concat(FW_VERSION_MAJOR);
+    fw_version.concat(".");
+    fw_version.concat(FW_VERSION_MINOR);
+    fw_version.concat(".");
+    fw_version.concat(FW_VERSION_PATCH);
+    Serial << fw_version.c_str();
+    return fw_version;
 }
 
 void ui_debug() {
@@ -467,7 +494,11 @@ void ui_serial_comm_handler() {
                     "                                                     Backbord oder Steuerbord des Schiffes\n" <<
                     "             --extern [Wert]                       - aktiviere/deaktiviere externes Alarmsignal\n" <<
                     "             --filter [Wert]                       - Filterhärte, ein kleinerer Wert verstärkt den Tiefpassfilter und erzeugt mehr Robustheit,\n"
-                    "                                                     aber verlangsamt die Reaktionszeit des Geräts. Standardwert: 1.0\n\n" <<
+                    "                                                     aber verlangsamt die Reaktionszeit des Geräts. Standardwert: 1.0\n"
+                    "             --wifi                                - konfigurieren des WLAN Netzwerknamens (SSID) und des Passworts\n"
+                    "             --update                              - einmaliges Überprüfen auf Updates\n"
+                    "                      --auto ['1' oder '0']        - Automatisches Überprüfen auf Updates beim Starten ein oder ausschalten\n"
+                    "                      --version [v#.#.#]           - Auf spezifische Version updaten, wenn verfügbar\n\n"
                     "stream [Option]                                    - Starten und Stoppen des Datenstreams über USB mit '--start' oder '--stop'\n\n" <<
                     "modus [Koordinatensystem]                          - Ändern des Ausgabemodus. Modi sind '0' für Sensor-, '1' für Geräte- und '2' für Schiffskoordinatensystem\n\n" <<
                     "speicher [Option]                                  - Zugriff auf gespeicherte Einstellungen über '--alles', zurücksetzen ALLER Einstellungen mit '--löschen'\n\n" <<
@@ -482,8 +513,8 @@ void ui_serial_comm_handler() {
         // flush serial buffer
         Serial.readString();
 
+        Serial << '\n';
         if (enable_serial_stream)
             delay(1000); // for readability when data stream is active
-            Serial << '\n';
     }
 }
