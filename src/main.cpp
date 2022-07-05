@@ -30,28 +30,41 @@ void setup() {
     // Setup serial communication
     Serial.begin(115200);
 
-    ui_info();
-
     // initialize modules
     if (module_memory_init() != MODULE_MEMORY_ERROR_NO_ERROR)
         Serial.println("Error initializing memory module.");
-
     module_memory_load_config();
+    display_manager_init();
+
+    display_manager_print(ui_info().c_str());
 
     // only enable wifi when necessary
     if (config_data.flag_check_update) {
+        uint8_t retval = WIFI_DEBUGGER_ERROR_UNKNOWN;
         //update routine
         Serial.println("In Update-Modus gestartet.");
+        display_manager_print("Suche nach Updates...");
         // reset flag
         config_data.flag_check_update = false;
         module_memory_save_config();
 
-        wifi_debugger_init(config_data.wifi_ssid, config_data.wifi_pw, URL_FW_VERSION, URL_FW_BIN);
-        if (wifi_debugger_fwVersionCheck(FW_VERSION_MAJOR, FW_VERSION_MINOR, FW_VERSION_PATCH))
-            wifi_debugger_firmwareUpdate();
+        retval = wifi_debugger_init(config_data.wifi_ssid, config_data.wifi_pw, URL_FW_VERSION, URL_FW_BIN);
+        if(retval == WIFI_DEBUGGER_ERROR_NO_ERROR) {
+            retval = wifi_debugger_fwVersionCheck(FW_VERSION_MAJOR, FW_VERSION_MINOR, FW_VERSION_PATCH);
+            if (retval == WIFI_DEBUGGER_ERROR_NO_ERROR)
+                wifi_debugger_firmwareUpdate();
+            else if (retval == WIFI_DEBUGGER_ERROR_NO_UPDATE)
+                display_manager_print("FW ist aktuell!");
+            else display_manager_print("Fehler.");
+        }
+        else if (retval == WIFI_DEBUGGER_ERROR_WIFI)
+            display_manager_print("WLAN nicht gefunden.");
+        else display_manager_print("Fehler.");
+
         // restarting esp
         delay(3000);
         Serial.println("ESP32 wird neu gestartet.");
+        display_manager_print("Neustart...");
         esp_restart();
     }
 
@@ -60,7 +73,6 @@ void setup() {
         Serial.println("In Normal-Modus gestartet.");
         device_manager_init();
         linalg_core_init();
-        display_manager_init();
         // if enabled, set flag to automatically check for update upon next restart
         if (config_data.flag_auto_update) {
             config_data.flag_check_update = true;
