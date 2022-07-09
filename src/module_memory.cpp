@@ -52,10 +52,55 @@ MODULE_MEMORY_ERROR_t module_memory_save_config() {
     return MODULE_MEMORY_ERROR_NO_ERROR;
 }
 
-MODULE_MEMORY_ERROR_t module_memory_load_config() {
-    if (!mem_handler.getBytes("config_data", (uint8_t*) &config_data, sizeof (MODULE_MEMORY_CONFIG_t)))
+MODULE_MEMORY_ERROR_t module_memory_load_legacy_config() {
+    MODULE_MEMORY_CONFIG_LEGACY_t legacy_config;
+    if (mem_handler.getBytesLength("config_data") != sizeof(legacy_config)) {
+        Serial.println("Veraltete Daten konnten nicht geladen werden.");
         return MODULE_MEMORY_ERROR_READ;
+    }
+    if (!mem_handler.getBytes("config_data", (uint8_t*) &legacy_config, sizeof (MODULE_MEMORY_CONFIG_LEGACY_t))) {
+        Serial.println("Veraltete Daten konnten nicht geladen werden.");
+        return MODULE_MEMORY_ERROR_READ;
+    }
+    Serial.println("Veraltete Daten geladen:");
+    // we found legacy config data. now transfer it to the new data format
+    // memcpy((uint8_t*) &config_data.flag_external_warning, (uint8_t*) &legacy_config, sizeof(MODULE_MEMORY_CONFIG_LEGACY_t));
+    config_data.flag_external_warning = legacy_config.flag_external_warning;
+    config_data.flag_device_calibration_state = legacy_config.flag_device_calibration_state;
+    config_data.flag_ship_calibration_state = legacy_config.flag_ship_calibration_state;
+    config_data.state_mode = legacy_config.state_mode;
+    memcpy((uint8_t*) config_data.threshold_angle_x, (uint8_t*) legacy_config.threshold_angle_x, 2 * sizeof(float));
+    memcpy((uint8_t*) config_data.threshold_angle_y, (uint8_t*) legacy_config.threshold_angle_y, 2 * sizeof(float));
+    config_data.filter_mavg_factor = legacy_config.filter_mavg_factor;
+    memcpy((uint8_t*) &config_data.rot_mat_1_0, (uint8_t*) &legacy_config.rot_mat_1_0, sizeof(Matrix<3, 3>));
+    memcpy((uint8_t*) &config_data.rot_mat_2_1, (uint8_t*) &legacy_config.rot_mat_2_1, sizeof(Matrix<3, 3>));
 
+    Serial << "Veraltete Daten aus Speicher: \n" <<
+           "Externes Warnsignal:                     " << config_data.flag_external_warning << '\n' <<
+           "Gehäusesystem kalibriert:                " << config_data.flag_device_calibration_state << '\n' <<
+           "Schiffssystem kalibriert:                " << config_data.flag_ship_calibration_state << '\n' <<
+           "Schwellwert für Bug und Heck             " << config_data.threshold_angle_x[0] << "°, " << config_data.threshold_angle_x[1] << "°\n" <<
+           "Schwellwert für Backbord und Steuerbord  " << config_data.threshold_angle_y[0] << "°, " << config_data.threshold_angle_y[1] << "°\n" <<
+           "Filterhärte:                             " << config_data.filter_mavg_factor << '\n' <<
+           "Ausgabemodus:                            " << config_data.state_mode << '\n' <<
+           "Gehäuserotationsmatrix R_1_0:            " << config_data.rot_mat_1_0 << '\n' <<
+           "Schiffsrotationsmatrix R_2_1:            " << config_data.rot_mat_2_1 << '\n';
+
+    // now save that data at least once
+    Serial.println("Speichere Daten.");
+    return module_memory_save_config();
+}
+
+MODULE_MEMORY_ERROR_t module_memory_load_config() {
+    if (mem_handler.getBytesLength("config_data") == sizeof(MODULE_MEMORY_CONFIG_t)){
+        // data fits into buffer, therefore load it
+        if (!mem_handler.getBytes("config_data", (uint8_t*) &config_data, sizeof (MODULE_MEMORY_CONFIG_t)))
+            return MODULE_MEMORY_ERROR_READ;
+    }
+    else {
+        Serial.println("Laden fehlgeschlagen. Versuche veralteten Datentyp...");
+        return module_memory_load_legacy_config();
+    }
     return MODULE_MEMORY_ERROR_NO_ERROR;
 }
 
@@ -65,7 +110,7 @@ MODULE_MEMORY_ERROR_t module_memory_erase_namespace() {
     if (nvs_flash_init() != ESP_OK)
         return MODULE_MEMORY_ERROR_INIT;
 
-    Serial.println("Erase complete. Restarting ESP...");
+    Serial.println("Löschen erfolgreich. Starte ESP neu...");
     delay(2000);
     esp_restart();
 }

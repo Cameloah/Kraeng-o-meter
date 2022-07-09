@@ -47,6 +47,18 @@ typedef struct {
     Matrix<3, 3> rot_mat_2_1;
 } MODULE_MEMORY_CONFIG_t;
 
+typedef struct {
+    bool flag_external_warning;
+    bool flag_device_calibration_state;
+    bool flag_ship_calibration_state;
+    uint8_t state_mode;
+    float threshold_angle_x[2];
+    float threshold_angle_y[2];
+    float filter_mavg_factor;
+    Matrix<3, 3> rot_mat_1_0;
+    Matrix<3, 3> rot_mat_2_1;
+} MODULE_MEMORY_CONFIG_LEGACY_t;
+
 extern MODULE_MEMORY_CONFIG_t config_data;
 
 /// \brief tries to open flash storage for a predefined amount of times before reporting an init error
