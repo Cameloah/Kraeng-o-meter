@@ -1,7 +1,7 @@
 #include "Arduino.h"
 
 // overall loop freq. of the main loop, use this in all time dependent modules
-#define FREQ_LOOP_CYCLE_HZ            3
+#define FREQ_LOOP_CYCLE_HZ            20
 
 extern uint32_t loop_timer;
 extern uint64_t t_0;

@@ -174,29 +174,6 @@ void _draw_alarm() {
     }
 }
 
-void _ILI9331_driver(uint8_t *sprite_pointer) {
-    // check for null pointer, otherwise esp will crash
-    if (sprite_pointer == nullptr) {
-        Serial.println("Nullpointer for display data");
-        return;
-    }
-
-    int32_t offset = 0;
-    gfx->startWrite();
-
-    uint8_t x = 0;
-    uint8_t y = 0;
-    uint16_t w = 240;
-    uint16_t h = 240;
-
-    for (int16_t j = 0; j < h; j++, y++) {
-        for (int16_t i = 0; i < w; i++) {
-            gfx->writePixel(x + i, y, sprite_total.color8to16(sprite_pointer[offset++]));
-        }
-    }
-    gfx->endWrite();
-}
-
 uint64_t time_last_print = 0;
 
 void display_manager_print(const char c[]) {
@@ -250,6 +227,6 @@ void display_manager_update() {
     }
 
     // execute and display the sprite on screen my calling the driver and passing the sprite data pointer
-    _ILI9331_driver((uint8_t *) sprite_total.getPointer());
+    gfx->draw8bitRGBBitmap(0, 0, (uint8_t*) sprite_total.getPointer(), 240, 320);
 }
 
