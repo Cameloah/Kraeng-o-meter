@@ -14,7 +14,7 @@
 
 bool enable_serial_stream = false;
 bool enable_serial_verbose = false;
-bool enable_measurements = false;
+bool enable_measurements = true;
 
 void ui_config() {
     MODULE_MEMORY_ERROR_t retVal = MODULE_MEMORY_ERROR_UNKNOWN;
