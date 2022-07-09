@@ -257,7 +257,6 @@ void calculate_tiltangle_x_y(Matrix<3> data_vector, float* return_buffer) {
     new_angles[0] = atan2(data_vector(1), data_vector(2)) * 180 / PI;
     new_angles[1] = atan2(data_vector(0), data_vector(2)) * 180 / PI;*/
 
-
     // use zyx euler rotation angles
     data_vector = normalize_(data_vector);
     float c_1_3 = data_vector(0);
@@ -278,6 +277,13 @@ void calculate_tiltangle_x_y(Matrix<3> data_vector, float* return_buffer) {
     new_angles[1] = atan2( c_1_3, sqrt(c_2_3 * c_2_3 + c_3_3 * c_3_3)) * 180 / PI;*/
 
     device_manager_filter_mavg(new_angles, return_buffer);
+
+    // little check for when there is nan reported. reinit IMU then
+    if(isnan(return_buffer[0]) or isnan(return_buffer[1])) {
+        Serial.println("NaN! Neustart..");
+        config_data.flag_check_update = 0;
+        esp_restart();
+    }
 }
 
 int get_calibration_state() {
