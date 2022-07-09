@@ -405,6 +405,7 @@ String ui_info() {
     fw_version.concat(FW_VERSION_MINOR);
     fw_version.concat(".");
     fw_version.concat(FW_VERSION_PATCH);
+    fw_version.concat("\n");
     Serial << fw_version.c_str();
     return fw_version;
 }
