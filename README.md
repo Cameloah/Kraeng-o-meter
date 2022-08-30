@@ -7,7 +7,7 @@ A device that measures the gravity vector using an inertia measurement unit and 
 - measure tilt angles of +/- 5° with 0.05° precision
 - display derivation from intial position on a 1.5 inch round display
 - four configurable thresholds, two for each axis to trigger warning signal when exceeded
-- display waring signal and trigger external waring signal using a relais
+- display warning signal and trigger external warning signal using a relais
 - configure options such as filter hardness, thresholds and usage of the external alarm
 - USB serial communication handler to configure and calibrate the device
 - save all configuration and calibration data to internal storage
@@ -47,7 +47,7 @@ To compute the rotation matrix from the potentially unknown sensor-orientation i
 7. The matrix R_0_1 consists of the 3 vertical vectors e_x_device, e_y_device and e_z_device and represents the device frame orientation in the sensor frame.
 8. Since rotation-matrices are orthonormal, the desired rotation matrix R_1_0 to convert vectors in the sensor frame to the device frame is obtained by taking the transposed matrix of R_0_1.
 
-The result is a simple, reliable, calibation procedure that can handle inperfect execution by the user and only relies on a accurate measurement in step 1.
+The result is a simple, reliable, calibation procedure that can handle inperfect execution by the user and only relies on an accurate measurement in step 1.
 
 ### Calibration of the device-orientation in the ship
 Since the Kräng-o-meter does not account for any yaw-rotation this axis is dependend on the mounting orientation in the ship. The device will always assume the ships roll-axis (y-axis of the ship frame) to be perpendicular to its device x-axis. Therefore, during the mounting process the 'front-side' of the device should point towards the front of the ship. 
