@@ -10,6 +10,7 @@ A device that measures the gravity vector using an inertia measurement unit and 
 - display warning signal and trigger external warning signal using a relais
 - configure options such as filter hardness, thresholds and usage of the external alarm
 - USB serial communication handler to configure and calibrate the device
+- automatic firmware updating when new version is released on GitHub
 - save all configuration and calibration data to internal storage
 
 
