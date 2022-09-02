@@ -5,7 +5,7 @@ A device that measures the gravity vector using an inertia measurement unit and 
 
 ## Feature list
 - measure tilt angles of +/- 5° with 0.05° precision
-- display derivation from intial position on a 1.5 inch round display
+- display deviation from intial position on a 1.5 inch round display
 - four configurable thresholds, two for each axis to trigger warning signal when exceeded
 - display warning signal and trigger external warning signal using a relais
 - configure options such as filter hardness, thresholds and usage of the external alarm
