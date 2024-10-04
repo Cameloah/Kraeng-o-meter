@@ -1,5 +1,5 @@
 //
-// Created by koorj on 07.01.2022.
+// Created by Cameloah on 07.01.2022.
 //
 #include <Arduino.h>
 #include <Adafruit_MPU6050.h>
