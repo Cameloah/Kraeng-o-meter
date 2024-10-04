@@ -10,7 +10,8 @@
 #include "module_memory.h"
 #include "device_manager.h"
 #include "linalg_core.h"
-#include "wifi_debugger.h"
+
+#include "github_update.h"
 
 bool enable_serial_stream = false;
 bool enable_serial_verbose = false;
@@ -267,11 +268,8 @@ void ui_config() {
         else if (!strcmp(sub_key, "--version")) {
 
             sub_key = strtok(nullptr, " \n");
-            config_data.flag_check_update = false;
-            if((retVal = module_memory_save_config()) != MODULE_MEMORY_ERROR_NO_ERROR)
-                Serial << "Fehler beim Speichern: " << retVal << "\n";
-            wifi_debugger_init(config_data.wifi_ssid, config_data.wifi_pw, URL_FW_VERSION, URL_FW_BIN);
-            wifi_debugger_firmwareUpdate(sub_key);
+
+            github_update_firmwareUpdate(sub_key);
             Serial.println("Update fehlgeschlagen.");
             return;
         }

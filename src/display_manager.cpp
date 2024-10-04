@@ -6,7 +6,6 @@
 #include <TFT_eSPI.h>
 #include <Free_Fonts.h>
 
-#include "data/bitmap.h"
 #include "display_manager.h"
 #include "device_manager.h"
 #include "module_memory.h"
