@@ -4,3 +4,6 @@
 [submodule "lib/Arduino_GFX"]
 	path = lib/Arduino_GFX
 	url = git@github.com:monte-monte/Arduino_GFX.git
+[submodule "lib/ProjectUtils-esp32"]
+	path = lib/ProjectUtils-esp32
+	url = git@github.com:Cameloah/ProjectUtils-esp32.git
