@@ -99,8 +99,10 @@ void device_manager_init() {
     device_manager_init_imu();
 
     // external GPIOs
-    pinMode(PIN_EXTERNAL_WARNING_RELAY, OUTPUT);
-    digitalWrite(PIN_EXTERNAL_WARNING_RELAY, HIGH);
+    pinMode(PIN_EXTERNAL_WARNING_RELAY_1, OUTPUT);
+    pinMode(PIN_EXTERNAL_WARNING_RELAY_2, OUTPUT);
+    digitalWrite(PIN_EXTERNAL_WARNING_RELAY_1, HIGH);
+    digitalWrite(PIN_EXTERNAL_WARNING_RELAY_2, HIGH);
 }
 
 void device_manager_check_warning() {
@@ -121,13 +123,18 @@ void device_manager_check_warning() {
     if (flag_threshold_violation_angle_x || flag_threshold_violation_angle_y)
     {
         // activate relay if config is activated
-        if (config_data.flag_external_warning)
-            digitalWrite(PIN_EXTERNAL_WARNING_RELAY, LOW);
+        if (config_data.flag_external_warning) {
+            digitalWrite(PIN_EXTERNAL_WARNING_RELAY_1, LOW);
+            digitalWrite(PIN_EXTERNAL_WARNING_RELAY_2, LOW);}
 
-        else digitalWrite(PIN_EXTERNAL_WARNING_RELAY, HIGH);
+        else {
+            digitalWrite(PIN_EXTERNAL_WARNING_RELAY_1, HIGH);
+            digitalWrite(PIN_EXTERNAL_WARNING_RELAY_2, HIGH);}
     }
 
-    else digitalWrite(PIN_EXTERNAL_WARNING_RELAY, HIGH);
+    else {
+        digitalWrite(PIN_EXTERNAL_WARNING_RELAY_1, HIGH);
+        digitalWrite(PIN_EXTERNAL_WARNING_RELAY_2, HIGH);}
 }
 
 void device_manager_filter_mavg(const float* new_angles, float* angles) {

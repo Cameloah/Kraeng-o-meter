@@ -239,6 +239,7 @@ void calibrate_ship() {
 
 void calculate_tiltangle_x_y(Matrix<3> data_vector, float* return_buffer) {
     float new_angles[2];
+
     // rotate vector
     switch (config_data.state_mode) {
         case 1:
@@ -279,11 +280,12 @@ void calculate_tiltangle_x_y(Matrix<3> data_vector, float* return_buffer) {
     device_manager_filter_mavg(new_angles, return_buffer);
 
     // little check for when there is nan reported. reinit IMU then
+    /*
     if(isnan(return_buffer[0]) or isnan(return_buffer[1])) {
         Serial.println("NaN! Neustart..");
         config_data.flag_check_update = 0;
         esp_restart();
-    }
+    }*/
 }
 
 int get_calibration_state() {

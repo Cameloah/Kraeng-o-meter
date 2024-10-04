@@ -15,10 +15,11 @@ using namespace BLA;
 #define MPU6050_FILTER_BW_HZ                    MPU6050_BAND_5_HZ
 #define MPU6050_INIT_TIMEOUT                    5000
 //______GPIOs_____________________________________
-#define PIN_EXTERNAL_WARNING_RELAY              23
+#define PIN_EXTERNAL_WARNING_RELAY_1            23
+#define PIN_EXTERNAL_WARNING_RELAY_2            35
 
-//______waring trigger____________________________
-#define WARNING_FLAG_CLEAR_AT                   0.9     // 90%
+//______warning trigger___________________________
+#define WARNING_FLAG_CLEAR_AT                   0.95     // 90%
 
 //______Filter____________________________________
 #define FILTER_MEDIAN_SIZE                      20
