@@ -7,12 +7,19 @@
 #include "BasicLinearAlgebra.h"
 #include <cmath>
 
-#include "../include/linalg_core.h"
-#include "../include/device_manager.h"
-#include "../include/module_memory.h"
+#include "linalg_core.h"
+#include "device_manager.h"
+
+#include "memory_module.h"
+#include "ram_log.h"
+#include "webserial_monitor.h"
+
+
+MemoryModule config_data("kraengometer");
+
 
 void serial_flush_() {
-    String k = Serial.readString();
+    String k = DualSerial.readString();
 }
 
 float length_(Matrix<3> &vector) {
@@ -35,23 +42,46 @@ Matrix<3> cross_(Matrix<3> &a, Matrix<3> &b) {
 }
 
 void linalg_core_init() {
-    // check for existing calibration data
-    if (module_memory_load_config() != MODULE_MEMORY_ERROR_NO_ERROR) {
-        Serial.println("Keine Konfigurationsdaten gefunden.");
+    // set up memory
+    config_data.addParameter("ext_warning", false);
+    config_data.addParameter("calib_device", false);
+    config_data.addParameter("calib_ship", false);
+    config_data.addParameter("state_mode", 2);
+    config_data.addParameter("filter_factor", (float) 1.0);
 
-        // fill rot matrices
-        config_data.rot_mat_1_0.Fill(0);
-        config_data.rot_mat_2_1.Fill(0);
+    float threshold_angle_x[2] = {-1, 1};
+    float threshold_angle_y[2] = {-1, 1};
+    config_data.addParameter("th_angle_x", (uint8_t*) threshold_angle_x, sizeof(threshold_angle_x));
+    config_data.addParameter("th_angle_y", (uint8_t*) threshold_angle_y, sizeof(threshold_angle_y));
 
-        // create identity matrices
-        for (int i = 0; i < 3; i++) {
-            config_data.rot_mat_1_0(i, i) = 1;
-            config_data.rot_mat_2_1(i, i) = 1;
-        }
+    Matrix<3, 3> rot_mat_1_0;
+    Matrix<3, 3> rot_mat_2_1;
+    rot_mat_1_0.Fill(0);
+    rot_mat_2_1.Fill(0);
+    // create identity matrices
+    for (int i = 0; i < 3; i++) {
+        rot_mat_1_0(i, i) = 1;
+        rot_mat_2_1(i, i) = 1;
+    }
+    config_data.addParameter("rot_mat_1_0", (uint8_t*) &rot_mat_1_0, sizeof(Matrix<3, 3>));
+    config_data.addParameter("rot_mat_2_1", (uint8_t*) &rot_mat_2_1, sizeof(Matrix<3, 3>));
+
+    esp_err_t retval = config_data.loadAllStrict();
+    // try to load config data
+    if (retval != ESP_OK) { //}== ESP_ERR_NVS_NOT_FOUND || retval == ESP_ERR_NOT_FOUND) {
+        ram_log_notify(RAM_LOG_INFO, "Keine Konfigurationsdaten gefunden. Nutze Standardwerte.", true);
+        if ((retval = config_data.saveAll()) != ESP_OK)
+            DualSerial.println("Fehler beim Speichern der Standardwerte.");
+    }
+
+    else if (retval != ESP_OK) {
+        DualSerial.println("Fehler beim Laden der Konfigurationsdaten.");
         return;
     }
 
-    else Serial.println("Konfigurationsdaten aus Speicher geladen");
+    else {
+        DualSerial.println("Konfigurationsdaten geladen.");
+    }
 }
 
 void calibrate_device() {
@@ -65,22 +95,22 @@ void calibrate_device() {
      * 7. save R_0_1 to later rotate sensor data to device frame
      */
 
-    Serial.println("Gehäuse-Kalibrierung");
-    Serial.println("Stellen sie das Gehäuse hochkant auf den Tisch, die Anzeige zeigt nach oben.");
-    Serial.println("Bestätigen Sie mit beliebiger Konsoleneingabe. Abbrechen mit 'abbruch'.");
+    DualSerial.println("Gehäuse-Kalibrierung");
+    DualSerial.println("Stellen sie das Gehäuse hochkant auf den Tisch, die Anzeige zeigt nach oben.");
+    DualSerial.println("Bestätigen Sie mit beliebiger Konsoleneingabe. Abbrechen mit 'abbruch'.");
 
-    while(!Serial.available()) {}   // wait for any user input
+    while(!DualSerial.available()) {}   // wait for any user input
     delay(50); // wait a bit for transfer of all serial data
-    uint8_t rx_available_bytes = Serial.available();
+    uint8_t rx_available_bytes = DualSerial.available();
     char rx_user_input[50];
-    Serial.readBytes(rx_user_input, rx_available_bytes);
+    DualSerial.readBytes(rx_user_input, rx_available_bytes);
     serial_flush_();
     // extract first word
     char* rx_command_key = strtok(rx_user_input, " \n");
     //handle null pointer exception
     if (rx_command_key != nullptr) {
         if (!strcmp(rx_command_key, "abbruch")) {
-            Serial.println("Kalibrierung abgebrochen.");
+            DualSerial.println("Kalibrierung abgebrochen.");
             return;
         }
     }
@@ -89,20 +119,20 @@ void calibrate_device() {
     e_z_device = normalize_(e_z_device); // normalize
     e_z_device *= -1;   // flip
 
-    Serial.println("Kippen Sie das Gehäuse 90° zu sich, die Anzeige zeigt nach vorn und liegt gerade.");
-    Serial.println("Bestätigen Sie mit beliebiger Konsoleneingabe. Abbrechen mit 'abbruch'.");
+    DualSerial.println("Kippen Sie das Gehäuse 90° zu sich, die Anzeige zeigt nach vorn und liegt gerade.");
+    DualSerial.println("Bestätigen Sie mit beliebiger Konsoleneingabe. Abbrechen mit 'abbruch'.");
 
-    while(!Serial.available()) {}   // wait for any user input
+    while(!DualSerial.available()) {}   // wait for any user input
     delay(50); // wait a bit for transfer of all serial data
-    rx_available_bytes = Serial.available();
-    Serial.readBytes(rx_user_input, rx_available_bytes);
+    rx_available_bytes = DualSerial.available();
+    DualSerial.readBytes(rx_user_input, rx_available_bytes);
     serial_flush_();
     // extract first word
     rx_command_key = strtok(rx_user_input, " \n");
     //handle null pointer exception
     if (rx_command_key != nullptr) {
         if (!strcmp(rx_command_key, "abbruch")) {
-            Serial.println("Kalibrierung abgebrochen.");
+            DualSerial.println("Kalibrierung abgebrochen.");
             return;
         }
     }
@@ -117,42 +147,44 @@ void calibrate_device() {
     e_y_device = cross_(e_z_device, e_x_device); // calculate cross product
 
     Matrix<3, 3> rot_mat_0_1 = e_x_device || e_y_device || e_z_device;
-    config_data.rot_mat_1_0 = ~rot_mat_0_1; // transpose mat
+    Matrix<3, 3> rot_mat_1_0 = ~rot_mat_0_1; // transpose mat
+
+    config_data.set("rot_mat_1_0", (uint8_t*) &rot_mat_1_0, sizeof(Matrix<3, 3>));
 
     // all good so set flag high
-    config_data.flag_device_calibration_state = true;
-    Serial.println("Kalibrierung der Sensorlage im Gehäuse abgeschlossen. Soll die Kalibrierung gespeichert werden? 'ja', 'nein'");
+    config_data.set("calib_device", true);
+    DualSerial.println("Kalibrierung der Sensorlage im Gehäuse abgeschlossen. Soll die Kalibrierung gespeichert werden? 'ja', 'nein'");
 
     while (true) {
-        while(!Serial.available()) {}   // wait for any user input
+        while(!DualSerial.available()) {}   // wait for any user input
         delay(50); // wait a bit for transfer of all serial data
-        rx_available_bytes = Serial.available();
-        Serial.readBytes(rx_user_input, rx_available_bytes);
+        rx_available_bytes = DualSerial.available();
+        DualSerial.readBytes(rx_user_input, rx_available_bytes);
         serial_flush_();
 
         // extract first word
         char* rx_command_key = strtok(rx_user_input, " \n");
         //handle null pointer exception
         if (rx_command_key == nullptr) {
-            Serial.println("Optionen sind 'ja' oder 'nein'.");
+            DualSerial.println("Optionen sind 'ja' oder 'nein'.");
             continue;
         }
 
         if (!strcmp(rx_user_input, "nein")) {
-            Serial.println("Abgeschlossen.");
+            DualSerial.println("Abgeschlossen.");
             return;
         }
 
         else if (!strcmp(rx_user_input, "ja")) {
             // save rot mat to filesystem
-            if (module_memory_save_config() == MODULE_MEMORY_ERROR_NO_ERROR)
-                Serial.println("Abgeschlossen. Kalibrierung wurde gespeichert.");
+            if (config_data.save("rot_mat_1_0") == ESP_OK && config_data.save("calib_device") == ESP_OK)
+                DualSerial.println("Abgeschlossen. Kalibrierung wurde gespeichert.");
             else
-                Serial.println("Fehler beim Speichern. Bei Neustart ist möglicherweise Re-Kalibrierung nötig!");
+                DualSerial.println("Fehler beim Speichern. Bei Neustart ist möglicherweise Re-Kalibrierung nötig!");
             return;
         }
 
-        else Serial.println("Optionen sind 'ja' oder 'nein'.");
+        else DualSerial.println("Optionen sind 'ja' oder 'nein'.");
     }
 }
 
@@ -167,22 +199,22 @@ void calibrate_ship() {
 
     Matrix<3> e_x = {1, 0, 0};
 
-    Serial.println("Schiffs-Kalibrierung");
-    Serial.println("Achten Sie beim Einbau auf eine moeglichst genaue Ausrichtung Richtung Bug. Gehäuseschräglage wird korrigiert. ");
-    Serial.println("Bestätigen Sie mit beliebiger Konsoleneingabe. Abbrechen mit 'abbruch'.");
+    DualSerial.println("Schiffs-Kalibrierung");
+    DualSerial.println("Achten Sie beim Einbau auf eine moeglichst genaue Ausrichtung Richtung Bug. Gehäuseschräglage wird korrigiert. ");
+    DualSerial.println("Bestätigen Sie mit beliebiger Konsoleneingabe. Abbrechen mit 'abbruch'.");
 
-    while(!Serial.available()) {}   // wait for any user input
+    while(!DualSerial.available()) {}   // wait for any user input
     delay(50); // wait a bit for transfer of all serial data
-    uint8_t rx_available_bytes = Serial.available();
+    uint8_t rx_available_bytes = DualSerial.available();
     char rx_user_input[50];
-    Serial.readBytes(rx_user_input, rx_available_bytes);
+    DualSerial.readBytes(rx_user_input, rx_available_bytes);
     serial_flush_();
     // extract first word
     char* rx_command_key = strtok(rx_user_input, " \n");
     //handle null pointer exception
     if (rx_command_key != nullptr) {
         if (!strcmp(rx_command_key, "abbruch")) {
-            Serial.println("Kalibrierung abgebrochen.");
+            DualSerial.println("Kalibrierung abgebrochen.");
             return;
         }
     }
@@ -190,7 +222,8 @@ void calibrate_ship() {
     Matrix<3> e_z_ship = device_manager_get_accel_mean();// measure g-vector
     e_z_ship = normalize_(e_z_ship); // normalize
     e_z_ship *= -1;   // flip
-    e_z_ship = config_data.rot_mat_1_0 * e_z_ship; // rotate to device frame
+
+    e_z_ship = *static_cast<Matrix<3, 3>*>(config_data.get("rot_mat_1_0")) * e_z_ship; // rotate to device frame
 
     Matrix<3> e_y_ship = cross_(e_z_ship, e_x); // calculate cross product
               e_y_ship = normalize_(e_y_ship); // normalize
@@ -198,42 +231,44 @@ void calibrate_ship() {
     Matrix<3> e_x_ship = cross_(e_y_ship, e_z_ship); // calculate cross product
 
     Matrix<3, 3> rot_mat_1_2 = e_x_ship || e_y_ship || e_z_ship;
-    config_data.rot_mat_2_1 = ~rot_mat_1_2; // transpose mat
+    Matrix<3, 3> result = ~rot_mat_1_2; // transpose mat
+
+    config_data.set("rot_mat_2_1", (uint8_t*) &result, sizeof(Matrix<3, 3>));
 
     // all good so set flag high
-    config_data.flag_ship_calibration_state = true;
-    Serial.println("Kalibrierung der Gehäuselage im Schiff abgeschlossen. Soll die Kalibrierung gespeichert werden? 'ja', 'nein'");
+    config_data.set("calib_ship", true);
+    DualSerial.println("Kalibrierung der Gehäuselage im Schiff abgeschlossen. Soll die Kalibrierung gespeichert werden? 'ja', 'nein'");
 
     while (true) {
-        while(!Serial.available()) {}   // wait for any user input
+        while(!DualSerial.available()) {}   // wait for any user input
         delay(50); // wait a bit for transfer of all serial data
-        rx_available_bytes = Serial.available();
-        Serial.readBytes(rx_user_input, rx_available_bytes);
+        rx_available_bytes = DualSerial.available();
+        DualSerial.readBytes(rx_user_input, rx_available_bytes);
         serial_flush_();
 
         // extract first word
         char* rx_command_key = strtok(rx_user_input, " \n");
         //handle null pointer exception
         if (rx_command_key == nullptr) {
-            Serial.println("Optionen sind 'ja' oder 'nein'.");
+            DualSerial.println("Optionen sind 'ja' oder 'nein'.");
             continue;
         }
 
         if (!strcmp(rx_user_input, "nein")) {
-            Serial.println("Abgeschlossen.");
+            DualSerial.println("Abgeschlossen.");
             return;
         }
 
         else if (!strcmp(rx_user_input, "ja")) {
             // save rot mat to filesystem
-            if (module_memory_save_config() == MODULE_MEMORY_ERROR_NO_ERROR)
-                Serial.println("Abgeschlossen. Kalibrierung wurde gespeichert.");
+            if (config_data.save("rot_mat_2_1") == ESP_OK && config_data.save("calib_ship") == ESP_OK)
+                DualSerial.println("Abgeschlossen. Kalibrierung wurde gespeichert.");
             else
-                Serial.println("Fehler beim Speichern. Bei Neustart ist möglicherweise Re-Kalibrierung nötig!");
+                DualSerial.println("Fehler beim Speichern. Bei Neustart ist möglicherweise Re-Kalibrierung nötig!");
             return;
         }
 
-        else Serial.println("Optionen sind 'ja' oder 'nein'.");
+        else DualSerial.println("Optionen sind 'ja' oder 'nein'.");
     }
 }
 
@@ -241,22 +276,17 @@ void calculate_tiltangle_x_y(Matrix<3> data_vector, float* return_buffer) {
     float new_angles[2];
 
     // rotate vector
-    switch (config_data.state_mode) {
+    switch (*config_data.getInt("state_mode")) {
         case 1:
-            data_vector = config_data.rot_mat_1_0 * data_vector;
+            data_vector = *static_cast<Matrix<3, 3>*>(config_data.get("rot_mat_1_0")) * data_vector;
             break;
 
         case 2:
-            data_vector = config_data.rot_mat_1_0 * data_vector;
-            data_vector = config_data.rot_mat_2_1 * data_vector;
+            data_vector = *static_cast<Matrix<3, 3>*>(config_data.get("rot_mat_1_0")) * data_vector;
+            data_vector = *static_cast<Matrix<3, 3>*>(config_data.get("rot_mat_2_1")) * data_vector;
     }
 
     data_vector *= -1; // invert vector
-
-    // calculate angle using atan2 and save in return_buffer
-    /*
-    new_angles[0] = atan2(data_vector(1), data_vector(2)) * 180 / PI;
-    new_angles[1] = atan2(data_vector(0), data_vector(2)) * 180 / PI;*/
 
     // use zyx euler rotation angles
     data_vector = normalize_(data_vector);
@@ -269,35 +299,25 @@ void calculate_tiltangle_x_y(Matrix<3> data_vector, float* return_buffer) {
     new_angles[0] = -atan2(c_3_2, c_3_3) * 180 / PI;
     new_angles[1] = -atan2( -1 * c_3_1, sqrt(c_3_2 * c_3_2 + c_3_3 * c_3_3)) * 180 / PI;
 
-    /*
-    // use Jones rotation angles
-    float c_1_3 = data_vector(0);
-    float c_2_3 = data_vector(1);
-    float c_3_3 = data_vector(2);
-    new_angles[0] = atan2( c_2_3, sqrt(c_1_3 * c_1_3 + c_3_3 * c_3_3)) * 180 / PI;
-    new_angles[1] = atan2( c_1_3, sqrt(c_2_3 * c_2_3 + c_3_3 * c_3_3)) * 180 / PI;*/
 
     device_manager_filter_mavg(new_angles, return_buffer);
 
     // little check for when there is nan reported. reinit IMU then
-    /*
     if(isnan(return_buffer[0]) or isnan(return_buffer[1])) {
-        Serial.println("NaN! Neustart..");
-        config_data.flag_check_update = 0;
+        DualSerial.println("NaN! Neustart..");
         esp_restart();
-    }*/
+    }
 }
 
 int get_calibration_state() {
-    if(config_data.flag_device_calibration_state) {
-        if(config_data.flag_ship_calibration_state)
-            return 0;
+    if (*config_data.getBool("calib_device")) {
+        if (*config_data.getBool("calib_ship"))
+            return 2;
         return 1;
     }
-    return 2;
+    return 0;
 }
 
 void put_state_mode(uint8_t mode) {
-    config_data.state_mode = mode;
-    module_memory_save_config();
+    config_data.set("state_mode", mode, true);
 }

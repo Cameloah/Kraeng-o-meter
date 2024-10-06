@@ -4,9 +4,11 @@
 #pragma once
 
 #include "BasicLinearAlgebra.h"
+#include "memory_module.h"
 
 using namespace BLA;
 
+extern MemoryModule config_data;
 
 /// \brief sets up rot matrices as identity matrices
 void linalg_core_init();
