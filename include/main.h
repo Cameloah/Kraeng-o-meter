@@ -16,7 +16,7 @@
 #define AP_VERBOSITY                    2
 
 // comment this out to have an always on AP once its spawned
-// #define AP_TIMEOUT                      300000      // 5 min
+#define AP_TIMEOUT                      300000      // 5 min
 #define TIMEOUT_WIFI_CONNECT_MS         5000
 
 // time module settings
