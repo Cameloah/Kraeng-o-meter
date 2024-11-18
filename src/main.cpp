@@ -41,11 +41,12 @@ void setup() {
     DualSerial.begin(115200);
 
     // Initialize modules
-    display_manager_init();
-
-    project_utils_init("Kraeng-o-Meter");
     linalg_core_init();
     device_manager_init();
+    display_manager_init();
+    display_manager_print("Initialisiere...");
+    project_utils_init("Kraeng-o-Meter");
+    
 
     display_manager_print(ui_info().c_str());
     

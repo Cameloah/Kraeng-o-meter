@@ -16,7 +16,6 @@ using namespace BLA;
 #define MPU6050_INIT_TIMEOUT                    5000
 //______GPIOs_____________________________________
 #define PIN_EXTERNAL_WARNING_RELAY_1            23
-#define PIN_EXTERNAL_WARNING_RELAY_2            35
 
 //______warning trigger___________________________
 #define WARNING_FLAG_CLEAR_AT                   0.95     // 90%

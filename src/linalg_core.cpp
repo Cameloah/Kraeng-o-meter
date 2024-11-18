@@ -9,6 +9,7 @@
 
 #include "linalg_core.h"
 #include "device_manager.h"
+#include "display_manager.h"
 
 #include "memory_module.h"
 #include "ram_log.h"
@@ -98,6 +99,8 @@ void calibrate_device() {
     DualSerial.println("Gehäuse-Kalibrierung");
     DualSerial.println("Stellen sie das Gehäuse hochkant auf den Tisch, die Anzeige zeigt nach oben.");
     DualSerial.println("Bestätigen Sie mit beliebiger Konsoleneingabe. Abbrechen mit 'abbruch'.");
+
+    display_manager_print("Kalibrierung im Gehaeuse...");
 
     while(!DualSerial.available()) {}   // wait for any user input
     delay(50); // wait a bit for transfer of all serial data
@@ -202,6 +205,8 @@ void calibrate_ship() {
     DualSerial.println("Schiffs-Kalibrierung");
     DualSerial.println("Achten Sie beim Einbau auf eine moeglichst genaue Ausrichtung Richtung Bug. Gehäuseschräglage wird korrigiert. ");
     DualSerial.println("Bestätigen Sie mit beliebiger Konsoleneingabe. Abbrechen mit 'abbruch'.");
+
+    display_manager_print("Kalibrierung im Schiff...");
 
     while(!DualSerial.available()) {}   // wait for any user input
     delay(50); // wait a bit for transfer of all serial data
