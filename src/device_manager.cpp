@@ -1,5 +1,5 @@
 //
-// Created by koorj on 07.01.2022.
+// Created by Cameloah on 07.01.2022.
 //
 #include <Arduino.h>
 #include <Adafruit_MPU6050.h>
@@ -7,8 +7,11 @@
 #include <Wire.h>
 
 #include "device_manager.h"
-#include "module_memory.h"
 #include "tools/loop_timer.h"
+#include "linalg_core.h"
+
+#include "ram_log.h"
+#include "webserial_monitor.h"
 
 Adafruit_MPU6050 sensor_imu;
 // state variables
@@ -21,75 +24,75 @@ bool flag_threshold_violation_angle_y = false;
 
 void device_manager_init_imu() {
     // Try to initialize
-    Serial.println("Searching for MPU6050 chip...");
+    DualSerial.println("Searching for MPU6050 chip...");
 
     double t_0_init = millis();
     while (!sensor_imu.begin()) {
         if (MPU6050_INIT_TIMEOUT < (millis() - t_0_init)) {
-            Serial.println("No IMU found!");
+            DualSerial.println("No IMU found!");
             return;
         }
     }
-    Serial.println("MPU6050 Found!");
+    DualSerial.println("MPU6050 Found!");
 
     // Set sensor ranges
     sensor_imu.setAccelerometerRange(MPU6050_ACCEL_RANGE_G);
-    Serial.print("Accelerometer range set to: ");
+    DualSerial.print("Accelerometer range set to: ");
     switch (sensor_imu.getAccelerometerRange()) {
         case MPU6050_RANGE_2_G:
-            Serial.println("+-2G");
+            DualSerial.println("+-2G");
             break;
         case MPU6050_RANGE_4_G:
-            Serial.println("+-4G");
+            DualSerial.println("+-4G");
             break;
         case MPU6050_RANGE_8_G:
-            Serial.println("+-8G");
+            DualSerial.println("+-8G");
             break;
         case MPU6050_RANGE_16_G:
-            Serial.println("+-16G");
+            DualSerial.println("+-16G");
             break;
     }
 
     sensor_imu.setGyroRange(MPU6050_GYRO_RANGE_DEG);
-    Serial.print("Gyro range set to: ");
+    DualSerial.print("Gyro range set to: ");
     switch (sensor_imu.getGyroRange()) {
         case MPU6050_RANGE_250_DEG:
-            Serial.println("+- 250 deg/s");
+            DualSerial.println("+- 250 deg/s");
             break;
         case MPU6050_RANGE_500_DEG:
-            Serial.println("+- 500 deg/s");
+            DualSerial.println("+- 500 deg/s");
             break;
         case MPU6050_RANGE_1000_DEG:
-            Serial.println("+- 1000 deg/s");
+            DualSerial.println("+- 1000 deg/s");
             break;
         case MPU6050_RANGE_2000_DEG:
-            Serial.println("+- 2000 deg/s");
+            DualSerial.println("+- 2000 deg/s");
             break;
     }
 
     sensor_imu.setFilterBandwidth(MPU6050_FILTER_BW_HZ);
-    Serial.print("Filter bandwidth set to: ");
+    DualSerial.print("Filter bandwidth set to: ");
     switch (sensor_imu.getFilterBandwidth()) {
         case MPU6050_BAND_260_HZ:
-            Serial.println("260 Hz");
+            DualSerial.println("260 Hz");
             break;
         case MPU6050_BAND_184_HZ:
-            Serial.println("184 Hz");
+            DualSerial.println("184 Hz");
             break;
         case MPU6050_BAND_94_HZ:
-            Serial.println("94 Hz");
+            DualSerial.println("94 Hz");
             break;
         case MPU6050_BAND_44_HZ:
-            Serial.println("44 Hz");
+            DualSerial.println("44 Hz");
             break;
         case MPU6050_BAND_21_HZ:
-            Serial.println("21 Hz");
+            DualSerial.println("21 Hz");
             break;
         case MPU6050_BAND_10_HZ:
-            Serial.println("10 Hz");
+            DualSerial.println("10 Hz");
             break;
         case MPU6050_BAND_5_HZ:
-            Serial.println("5 Hz");
+            DualSerial.println("5 Hz");
             break;
     }
 }
@@ -99,41 +102,46 @@ void device_manager_init() {
     device_manager_init_imu();
 
     // external GPIOs
-    pinMode(PIN_EXTERNAL_WARNING_RELAY, OUTPUT);
-    digitalWrite(PIN_EXTERNAL_WARNING_RELAY, HIGH);
+    pinMode(PIN_EXTERNAL_WARNING_RELAY_1, OUTPUT);
+    digitalWrite(PIN_EXTERNAL_WARNING_RELAY_1, HIGH);
 }
 
 void device_manager_check_warning() {
     // check if angles are outside of threshold
-    if (angles_x_y[0] < config_data.threshold_angle_x[0] || angles_x_y[0] > config_data.threshold_angle_x[1])
+    float* threshold_angle_x = static_cast<float*>(config_data.get("th_angle_x"));
+    float* threshold_angle_y = static_cast<float*>(config_data.get("th_angle_y"));
+
+    if (angles_x_y[0] < threshold_angle_x[0] || angles_x_y[0] > threshold_angle_x[1])
         flag_threshold_violation_angle_x = true;
 
-    if (angles_x_y[1] < config_data.threshold_angle_y[0] || angles_x_y[1] > config_data.threshold_angle_y[1])
+    if (angles_x_y[1] < threshold_angle_y[0] || angles_x_y[1] > threshold_angle_y[1])
         flag_threshold_violation_angle_y = true;
 
     // reset flags only if thresholds are sub-passed by a certain percent
-    if (angles_x_y[0] > config_data.threshold_angle_x[0] * WARNING_FLAG_CLEAR_AT && angles_x_y[0] < config_data.threshold_angle_x[1] * WARNING_FLAG_CLEAR_AT)
+    if (angles_x_y[0] > threshold_angle_x[0] * WARNING_FLAG_CLEAR_AT && angles_x_y[0] < threshold_angle_x[1] * WARNING_FLAG_CLEAR_AT)
         flag_threshold_violation_angle_x = false;
 
-    if (angles_x_y[1] > config_data.threshold_angle_y[0] * WARNING_FLAG_CLEAR_AT && angles_x_y[1] < config_data.threshold_angle_y[1] * WARNING_FLAG_CLEAR_AT)
+    if (angles_x_y[1] > threshold_angle_y[0] * WARNING_FLAG_CLEAR_AT && angles_x_y[1] < threshold_angle_y[1] * WARNING_FLAG_CLEAR_AT)
         flag_threshold_violation_angle_y = false;
 
-    if (flag_threshold_violation_angle_x || flag_threshold_violation_angle_y)
-    {
+    if (flag_threshold_violation_angle_x || flag_threshold_violation_angle_y) {
         // activate relay if config is activated
-        if (config_data.flag_external_warning)
-            digitalWrite(PIN_EXTERNAL_WARNING_RELAY, LOW);
-
-        else digitalWrite(PIN_EXTERNAL_WARNING_RELAY, HIGH);
+        if (*config_data.getBool("ext_warning")) {
+            digitalWrite(PIN_EXTERNAL_WARNING_RELAY_1, LOW);
+        } 
+        else {
+            digitalWrite(PIN_EXTERNAL_WARNING_RELAY_1, HIGH);
+        }
+    } else {
+        digitalWrite(PIN_EXTERNAL_WARNING_RELAY_1, HIGH);
     }
-
-    else digitalWrite(PIN_EXTERNAL_WARNING_RELAY, HIGH);
 }
 
 void device_manager_filter_mavg(const float* new_angles, float* angles) {
+    float filter_factor = *config_data.getFloat("filter_factor");
     for (int i = 0; i < 2; ++i) {
-        angles[i] = (float) (new_angles[i] * (config_data.filter_mavg_factor / FREQ_LOOP_CYCLE_HZ)
-                    + (1 - (config_data.filter_mavg_factor / FREQ_LOOP_CYCLE_HZ)) * angles[i]);
+        angles[i] = (float) (new_angles[i] * (filter_factor / FREQ_LOOP_CYCLE_HZ)
+                    + (1 - (filter_factor / FREQ_LOOP_CYCLE_HZ)) * angles[i]);
     }
 }
 

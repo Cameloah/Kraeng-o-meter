@@ -1,5 +1,5 @@
 //
-// Created by koorj on 19.01.2022.
+// Created by Cameloah on 19.01.2022.
 //
 
 
@@ -7,22 +7,38 @@
 
 #include "user_interface.h"
 #include "version.h"
-#include "module_memory.h"
 #include "device_manager.h"
 #include "linalg_core.h"
-#include "wifi_debugger.h"
+
+#include "github_update.h"
+#include "ram_log.h"
+#include "network_manager.h"
 
 bool enable_serial_stream = false;
 bool enable_serial_verbose = false;
 bool enable_measurements = true;
 
+String matrixToString(const Matrix<3, 3>& matrix) {
+    String result = "[";
+    for (int i = 0; i < 3; ++i) {
+        result += "[";
+        for (int j = 0; j < 3; ++j) {
+            result += String(matrix(i, j));
+            if (j < 2) result += ", ";
+        }
+        result += "]";
+        if (i < 2) result += ", ";
+    }
+    result += "]";
+    return result;
+}
+
 void ui_config() {
-    MODULE_MEMORY_ERROR_t retVal = MODULE_MEMORY_ERROR_UNKNOWN;
     // extract next word
     char* sub_key = strtok(nullptr, " \n");
 
     if (sub_key == nullptr) {
-        Serial << "\nUngültiger Parameter. Mindestens einer der folgenden Parameter fehlt:\n" <<
+        DualSerial << "\nUngültiger Parameter. Mindestens einer der folgenden Parameter fehlt:\n" <<
             "konfiguriere -r [Koordinatensystem] --auto         - Kalibrieren des Koordinatensystems. '1' für Gehäusekalibrierung und '2' für Schiffskalibrierung\n" <<
             "                                    [matrix]       - Manuelles eingeben der Rotationsmatrizen im Format [[x,x,x],[x,x,x],[x,x,x]]\n" <<
             "             -s ['b' 'h' 'bb' oder 'stb'] [Wert]   - Setzen des eingegebenen Werts als Neigungswinkel-Schwellwert für Bug,\n" <<
@@ -49,7 +65,7 @@ void ui_config() {
         sub_key = strtok(nullptr, " \n");
         if(sub_key == nullptr)
         {
-            Serial.println("\nEs muss ein Wert übergeben werden.");
+            DualSerial.println("\nEs muss ein Wert übergeben werden.");
             return;
         }
 
@@ -63,29 +79,42 @@ void ui_config() {
                     calibrate_ship();
                     break;
                 default:
-                    Serial.println(
+                    DualSerial.println(
                             "\nUnbekannter Modus. Kalibrierungsmodi sind '1' für Gehäusekalibrierung und '2' für Schiffskalibrierung.");
             }
             return;
         }
 
         char* input_rotmat = strtok(sub_key, "[], \n");
+        float rot_mat[9];
         for (int i = 0; i < 3; ++i) {
             for (int j = 0; j < 3; ++j) {
                 if(input_rotmat == nullptr) {
-                    Serial.println("Unzulässige Werte");
+                    DualSerial.println("Unzulässige Werte");
                     return;
                 }
                 if (index_rotmat == 1)
-                    config_data.rot_mat_1_0(i, j) = atof(input_rotmat);
+                    rot_mat[i*3 + j] = atof(input_rotmat);
                 else
-                    config_data.rot_mat_2_1(i, j) = atof(input_rotmat);
+                    rot_mat[i*3 + j] = atof(input_rotmat);
                 input_rotmat = strtok(nullptr, "[], \n");
             }
         }
 
-        if(module_memory_save_config() == MODULE_MEMORY_ERROR_NO_ERROR)
-            Serial.println("Erfolgreich abgespeichert.");
+        esp_err_t retval;
+
+        if (index_rotmat == 1) {
+            retval = config_data.set("rot_mat_1_0", (uint8_t*) rot_mat, true);
+        } else {
+            retval = config_data.set("rot_mat_2_1", (uint8_t*) rot_mat, true);
+        }
+
+        if (retval == ESP_OK)
+            DualSerial << "Rotationsmatrix gespeichert.\n";
+        else {
+            ram_log_notify(RAM_LOG_ERROR_MEMORY, (uint32_t) retval);
+            DualSerial << "Fehler beim Speichern.\n";
+        }
     }
 
     // set thresholds
@@ -96,7 +125,7 @@ void ui_config() {
 
         if(sub_key == nullptr)
         {
-            Serial.println("\nEs muss ein Wert übergeben werden.");
+            DualSerial.println("\nEs muss ein Wert übergeben werden.");
             return;
         }
 
@@ -110,20 +139,23 @@ void ui_config() {
             else user_input = angles_x_y[1];
         }
 
+        float* threshold_angle_x = static_cast<float*>(config_data.get("th_angle_x"));
+        float* threshold_angle_y = static_cast<float*>(config_data.get("th_angle_y"));
+
         if(!strcmp(axis_key, "b"))
-            config_data.threshold_angle_x[0] = user_input;
+            threshold_angle_x[0] = user_input;
 
         else if (!strcmp(axis_key, "h"))
-            config_data.threshold_angle_x[1] = user_input;
+            threshold_angle_x[1] = user_input;
 
         else if (!strcmp(axis_key, "bb"))
-                config_data.threshold_angle_y[0] = user_input;
+                threshold_angle_y[0] = user_input;
 
         else if (!strcmp(axis_key, "stb"))
-            config_data.threshold_angle_y[1] = user_input;
+            threshold_angle_y[1] = user_input;
 
         else {
-            Serial << "\nUngültiger Richtungsparameter. Der Syntax ist:\n" <<
+            DualSerial << "\nUngültiger Richtungsparameter. Der Syntax ist:\n" <<
                    "konfiguriere -s ['b' 'h' 'bb' oder 'stb'] [Wert]   - Setzen des eingegebenen Werts als Neigungswinkel-Schwellwert für Bug,\n" <<
                    "                                                     Heck, Backbord oder Steuerbord des Schiffes\n" <<
                    "                                          --auto   - speichere aktuellen Neigungswinkel als Schwellwert für Bug, Heck\n" <<
@@ -131,11 +163,21 @@ void ui_config() {
             return;
         }
 
-        Serial << "Neigungswinkel-Schwellwert für '" << axis_key << "' auf " << user_input << " gesetzt.\n";
-        if((retVal = module_memory_save_config()) != MODULE_MEMORY_ERROR_NO_ERROR) {
-            Serial << "Fehler beim Speichern: " << retVal << "\n";
+        DualSerial << "Neigungswinkel-Schwellwert für '" << axis_key << "' auf " << user_input << " gesetzt.\n";
+
+        esp_err_t retval = config_data.save("th_angle_x");
+        if (retval != ESP_OK) {
+            ram_log_notify(RAM_LOG_ERROR_MEMORY, (uint32_t) retval);
+            DualSerial << "Fehler beim Speichern.\n";
             return;
-        };
+        }
+
+        retval = config_data.save("th_angle_y");
+        if (retval != ESP_OK) {
+            ram_log_notify(RAM_LOG_ERROR_MEMORY, (uint32_t) retval);
+            DualSerial << "Fehler beim Speichern.\n";
+            return;
+        }
     }
 
     // toggle external warning signal
@@ -145,24 +187,26 @@ void ui_config() {
 
         switch (user_input) {
             case 1:
-                config_data.flag_external_warning = true;
-                Serial << "Externes Warnsignal eingeschaltet.\n";
+                config_data.set("ext_warning", true);
+                DualSerial << "Externes Warnsignal eingeschaltet.\n";
                 break;
 
             case 0:
-                config_data.flag_external_warning = false;
-                Serial << "Externes Warnsignal ausgeschaltet.\n";
+                config_data.set("ext_warning", false);
+                DualSerial << "Externes Warnsignal ausgeschaltet.\n";
                 break;
 
             default:
-                Serial.println("Ungültiger Parameter. Wert '1' oder '0' zum Einschalten bzw. Ausschalten.");
+                DualSerial.println("Ungültiger Parameter. Wert '1' oder '0' zum Einschalten bzw. Ausschalten.");
                 return;
         }
         // save user data
-        if((retVal = module_memory_save_config()) != MODULE_MEMORY_ERROR_NO_ERROR) {
-            Serial << "Fehler beim Speichern: " << retVal << "\n";
+        esp_err_t retval = config_data.save("ext_warning");
+        if (retval != ESP_OK) {
+            ram_log_notify(RAM_LOG_ERROR_MEMORY, (uint32_t) retval);
+            DualSerial << "Fehler beim Speichern.\n";
             return;
-        };
+        }
     }
 
     // set filter parameter for sensor data
@@ -171,122 +215,15 @@ void ui_config() {
         // import float
         float user_input = atof(sub_key);
 
-        config_data.filter_mavg_factor = user_input;
-        Serial << "Filterhärte auf " << user_input << " gesetzt.\n";
-        if((retVal = module_memory_save_config()) != MODULE_MEMORY_ERROR_NO_ERROR) {
-            Serial << "Fehler beim Speichern: " << retVal << "\n";
-            return;
-        };
-    }
-
-    // configure wifi access
-    else if(!strcmp(sub_key, "--wifi")) {
-        Serial.println("Name/SSID des Netzwerks?");
-
-        // flush serial buffer
-        Serial.readString();
-
-        // listen for user input
-        while (!Serial.available())
-        // wait a bit for transfer of all serial data
-        delay(50);
-
-        String wifi_user_input = Serial.readString();
-        wifi_user_input.trim(); // remove trailing new line character
-
-        if (wifi_user_input.length() > (sizeof (config_data.wifi_ssid) / sizeof (char))) {
-            Serial.println("SSID zu lang!");
-            return;
+        esp_err_t retval = config_data.set("filter_factor", user_input, true);
+        if (retval != ESP_OK) {
+            ram_log_notify(RAM_LOG_ERROR_MEMORY, (uint32_t) retval);
+            DualSerial << "Fehler beim Speichern.\n"; 
         }
-        // save ssid
-        wifi_user_input.toCharArray(config_data.wifi_ssid, (sizeof (config_data.wifi_ssid) / sizeof (char)));
-
-        // ask for password
-        Serial.println("Passwort?");
-
-        // flush serial buffer
-        Serial.readString();
-
-        // listen for user input
-        while (!Serial.available())
-            // wait a bit for transfer of all serial data
-            delay(50);
-
-        wifi_user_input = Serial.readString();
-        wifi_user_input.trim(); // remove trailing new line character
-
-        if (wifi_user_input.length() > (sizeof (config_data.wifi_pw) / sizeof (char))) {
-            Serial.println("Passwort zu lang!");
-            return;
-        }
-        wifi_user_input.toCharArray(config_data.wifi_pw, (sizeof (config_data.wifi_pw) / sizeof (char)));
-
-        Serial << "WiFi-Daten gespeichert. SSID: '" << config_data.wifi_ssid << "', PW: '" << config_data.wifi_pw << "'\n";
-        if((retVal = module_memory_save_config()) != MODULE_MEMORY_ERROR_NO_ERROR) {
-            Serial << "Fehler beim Speichern: " << retVal << "\n";
-            return;
-        };
-    }
-
-    // handle fw updates
-    else if(!strcmp(sub_key, "--update")) {
-        sub_key = strtok(nullptr, " \n");
-
-        if (sub_key == nullptr)
-            strcpy(sub_key, "");
-
-        if(!strcmp(sub_key, "--auto")) {
-            sub_key = strtok(nullptr, " \n");
-            if (sub_key == nullptr)
-                strcpy(sub_key, "");
-
-            auto user_input = (int8_t) atof(sub_key);
-
-            switch (user_input) {
-                case 1:
-                    config_data.flag_auto_update = true;
-                    config_data.flag_check_update = true;
-                    Serial << "Automatische Updates eingeschaltet.\n";
-                    break;
-
-                case 0:
-                    config_data.flag_auto_update = false;
-                    config_data.flag_check_update = false;
-                    Serial << "Automatische Updates ausgeschaltet.\n";
-                    break;
-
-                default:
-                    Serial.println("Ungültiger Parameter. Wert '1' oder '0' zum Einschalten bzw. Ausschalten.");
-                    return;
-            }
-            if((retVal = module_memory_save_config()) != MODULE_MEMORY_ERROR_NO_ERROR)
-                Serial << "Fehler beim Speichern: " << retVal << "\n";
-            return;
-        }
-
-        else if (!strcmp(sub_key, "--version")) {
-
-            sub_key = strtok(nullptr, " \n");
-            config_data.flag_check_update = false;
-            if((retVal = module_memory_save_config()) != MODULE_MEMORY_ERROR_NO_ERROR)
-                Serial << "Fehler beim Speichern: " << retVal << "\n";
-            wifi_debugger_init(config_data.wifi_ssid, config_data.wifi_pw, URL_FW_VERSION, URL_FW_BIN);
-            wifi_debugger_firmwareUpdate(sub_key);
-            Serial.println("Update fehlgeschlagen.");
-            return;
-        }
-
-        config_data.flag_check_update = true;
-        if((retVal = module_memory_save_config()) != MODULE_MEMORY_ERROR_NO_ERROR) {
-            Serial << "Fehler beim Speichern: " << retVal << "\n";
-            return;
-        };
-        Serial.println("ESP32 wird neu gestartet und auf Updates überprüft.");
-        esp_restart();
     }
 
     else {
-        Serial << "\nUngültiger Parameter. Mindestens einer der folgenden Parameter fehlt:\n" <<
+        DualSerial << "\nUngültiger Parameter. Mindestens einer der folgenden Parameter fehlt:\n" <<
         "konfiguriere -r [Koordinatensystem] --auto         - Kalibrieren des Koordinatensystems. '1' für Gehäusekalibrierung und '2' für Schiffskalibrierung\n" <<
         "                                    [matrix]       - Manuelles eingeben der Rotationsmatrizen im Format [[x,x,x],[x,x,x],[x,x,x]]\n" <<
         "             -s ['b' 'h' 'bb' oder 'stb'] [Wert]   - Setzen des eingegebenen Werts als Neigungswinkel-Schwellwert für Bug,\n" <<
@@ -295,11 +232,7 @@ void ui_config() {
         "                                                     Backbord oder Steuerbord des Schiffes\n" <<
         "             --extern [Wert]                       - aktiviere/deaktiviere externes Alarmsignal\n" <<
         "             --filter [Wert]                       - Filterhärte, ein kleinerer Wert verstärkt den Tiefpassfilter und erzeugt mehr Robustheit,\n"
-        "                                                     aber verlangsamt die Reaktionszeit des Geräts. Standardwert: 1.0\n"
-        "             --wifi                                - konfigurieren des WLAN Netzwerknamens (SSID) und des Passworts\n"
-        "             --update                              - einmaliges Überprüfen auf Updates\n"
-        "                      --auto ['1' oder '0']        - Automatisches Überprüfen auf Updates beim Starten ein oder ausschalten\n"
-        "                      --version [v#.#.#]           - Auf spezifische Version updaten, wenn verfügbar\n\n";
+        "                                                     aber verlangsamt die Reaktionszeit des Geräts. Standardwert: 1.0\n";
     }
 }
 
@@ -311,9 +244,9 @@ void ui_mode() {
     // check if within boundaries
     if (new_mode >= 0 && new_mode <= 2) {
         put_state_mode(new_mode);
-        Serial << "Ändere Ausgabemodus auf " << config_data.state_mode << "\n";
+        DualSerial << "Ändere Ausgabemodus auf " << *config_data.getInt("state_mode") << "\n";
     }
-    else Serial.println("\nUnbekannter Ausgabemodus. Modi sind '0' für Sensor-, '1' für Geräte- und '2' für Schiffskoordinatensystem.");
+    else DualSerial.println("\nUnbekannter Ausgabemodus. Modi sind '0' für Sensor-, '1' für Geräte- und '2' für Schiffskoordinatensystem.");
 }
 
 void ui_stream() {
@@ -321,7 +254,7 @@ void ui_stream() {
     char* sub_key = strtok(nullptr, " \n");
 
     if (sub_key == nullptr) {
-        Serial.println("\nFehlender Parameter. Optionen sind '--start' und '--stop'.");
+        DualSerial.println("\nFehlender Parameter. Optionen sind '--start' und '--stop'.");
         return;
     }
 
@@ -336,7 +269,7 @@ void ui_stream() {
             enable_serial_verbose = true;
 
         else
-            Serial.println("Unbekannte Option.");
+            DualSerial.println("Unbekannte Option.");
     }
 
     else if (!strcmp(sub_key, "--stop")) {
@@ -345,68 +278,80 @@ void ui_stream() {
     }
 
     else
-        Serial.println("\nUnbekannter Parameter. Optionen sind '--start' und '--stop'.");
+        DualSerial.println("\nUnbekannter Parameter. Optionen sind '--start' und '--stop'.");
 }
 
 void ui_memory() {
     char* sub_key = strtok(nullptr, " \n");
 
     if (sub_key == nullptr) {
-        Serial << "\nUngültiger Parameter. Mindestens einer der folgenden Parameter fehlt:\n" <<
+        DualSerial << "\nUngültiger Parameter. Mindestens einer der folgenden Parameter fehlt:\n" <<
         "speicher [Option]       - Zugriff auf gespeicherte Einstellungen über '--alles', zurücksetzen ALLER Einstellungen mit '--löschen'\n\n";
         return;
     }
 
     if (!strcmp(sub_key, "--alles")) {
-        Serial << "\n";
-        switch(module_memory_load_config()) {
-            case MODULE_MEMORY_ERROR_READ:
-                Serial.println("Keine Daten gefunden.");
+        DualSerial << "\n";
+        String payload;
+
+        switch(config_data.loadAll()) {
+            case ESP_ERR_NOT_FOUND:
+                DualSerial.println("Keine Daten gefunden.");
                 break;
 
-            case MODULE_MEMORY_ERROR_NO_ERROR:
-                Serial << "Konfigurationsdaten aus Speicher: \n" <<
-                "WiFi SSID:                               " << config_data.wifi_ssid << "\n" <<
-                "WiFi passwort:                           " << config_data.wifi_pw << "\n" <<
-                "Automatische Updates:                    " << config_data.flag_auto_update << "\n" <<
-                "Bei Neustart auf Updates überprüfen:     " << config_data.flag_check_update << "\n" <<
-                "Externes Warnsignal:                     " << config_data.flag_external_warning << '\n' <<
-                "Gehäusesystem kalibriert:                " << config_data.flag_device_calibration_state << '\n' <<
-                "Schiffssystem kalibriert:                " << config_data.flag_ship_calibration_state << '\n' <<
-                "Schwellwert für Bug und Heck             " << config_data.threshold_angle_x[0] << "°, " << config_data.threshold_angle_x[1] << "°\n" <<
-                "Schwellwert für Backbord und Steuerbord  " << config_data.threshold_angle_y[0] << "°, " << config_data.threshold_angle_y[1] << "°\n" <<
-                "Filterhärte:                             " << config_data.filter_mavg_factor << '\n' <<
-                "Ausgabemodus:                            " << config_data.state_mode << '\n' <<
-                "Gehäuserotationsmatrix R_1_0:            " << config_data.rot_mat_1_0 << '\n' <<
-                "Schiffsrotationsmatrix R_2_1:            " << config_data.rot_mat_2_1 << '\n';
+            case ESP_OK:
+                payload = "Konfigurationsdaten aus Speicher: \n";
+                payload += "Externes Warnsignal:                     " + String(*config_data.getBool("ext_warning")) + '\n' +
+                "Gehäusesystem kalibriert:                " + String(*config_data.getBool("calib_device")) + '\n' +
+                "Schiffssystem kalibriert:                " + String(*config_data.getBool("calib_ship")) + '\n' +
+                "Schwellwert für Bug und Heck             " + String(static_cast<float*>(config_data.get("th_angle_x"))[0]) + "°, " + String(static_cast<float*>(config_data.get("th_angle_x"))[1]) + "°\n" +
+                "Schwellwert für Backbord und Steuerbord  " + String(static_cast<float*>(config_data.get("th_angle_y"))[0]) + "°, " + String(static_cast<float*>(config_data.get("th_angle_y"))[1]) + "°\n" +
+                "Filterhärte:                             " + String(*config_data.getFloat("filter_factor")) + '\n' +
+                "Ausgabemodus:                            " + String(*config_data.getInt("state_mode")) + '\n' +
+                "Gehäuserotationsmatrix R_1_0:            " + matrixToString(*static_cast<Matrix<3, 3>*>(config_data.get("rot_mat_1_0"))) + '\n' +
+                "Schiffsrotationsmatrix R_2_1:            " + matrixToString(*static_cast<Matrix<3, 3>*>(config_data.get("rot_mat_2_1"))) + '\n';
+                DualSerial.print(payload);
                 break;
 
             default:
-                Serial.println("Unbekannter Speicherfehler.");
+                DualSerial.println("Unbekannter Speicherfehler.");
         }
     }
 
     else if (!strcmp(sub_key, "--löschen")) {
 
-        Serial.println("Lösche Flash-Speicher des ESP32...");
-        module_memory_erase_namespace();
-        // print error if function returns
-        Serial.println("Fehler beim Löschen!");
+        DualSerial.println("Funktion nicht verfügbar.");
     }
 
-    else Serial << "\nUngültiger Parameter. Mindestens einer der folgenden Parameter fehlt:\n" <<
+    else DualSerial << "\nUngültiger Parameter. Mindestens einer der folgenden Parameter fehlt:\n" <<
                 "speicher [Option]       - Zugriff auf gespeicherte Einstellungen über '--alles', zurücksetzen ALLER Einstellungen mit '--löschen'\n\n";
 }
 
 String ui_info() {
-    String fw_version = "Kraeng-o-Meter Version: ";
-    fw_version.concat(FW_VERSION_MAJOR);
-    fw_version.concat(".");
-    fw_version.concat(FW_VERSION_MINOR);
-    fw_version.concat(".");
-    fw_version.concat(FW_VERSION_PATCH);
-    fw_version.concat("\n");
-    Serial << fw_version.c_str();
+    String fw_version;
+    String info;
+
+    // Construct the firmware version string
+    fw_version += "\nKraeng-o-meter Version  v"
+    + String(FW_VERSION_MAJOR) + "." + String(FW_VERSION_MINOR) + "." + String(FW_VERSION_PATCH) + "\n";
+
+    // get reset reason
+    String boot_msg = String(esp_reset_reason(), HEX);
+    if (boot_msg.length() == 1)
+        boot_msg = "0" + boot_msg;
+    boot_msg = "0x" + boot_msg;
+
+    // Append additional system information to the info string.
+    info = "Wifi mode:          " + network_manager_get_mode() + "\n"
+    + "Wifi connected to:  " + (WiFi.isConnected() ? WiFi.SSID() : "not connected") + "\n"
+    + "IP-address:         " + (WiFi.isConnected() ? WiFi.localIP().toString() : "") + "\n"
+    + "Uptime:             " + ram_log_time_str(esp_timer_get_time()) + "\n"
+    + "Boot message:       " + boot_msg + "\n\n";
+
+    DualSerial.print(fw_version + info);
+
+    ram_log_print_log();
+
     return fw_version;
 }
 
@@ -414,7 +359,7 @@ void ui_debug() {
     char* sub_key = strtok(nullptr, " \n");
 
     if (sub_key == nullptr) {
-        Serial << "\nUngültiger Befehl. Mindestens einer der folgenden Parameter fehlt:\n" <<
+        DualSerial << "\nUngültiger Befehl. Mindestens einer der folgenden Parameter fehlt:\n" <<
         "debug --einzel              - starte einzelne Messung\n" <<
         "      --reinit              - Reinitialisiere den Sensor\n" <<
         "      --reboot              - Neustarten des Geräts\n" <<
@@ -422,7 +367,7 @@ void ui_debug() {
     }
 
     if (!strcmp(sub_key, "--einzel"))
-        Serial << "Einzelne Messung: " << device_manager_get_accel_raw() << "\n";
+        DualSerial << "Einzelne Messung: " << device_manager_get_accel_raw() << "\n";
 
     else if (!strcmp(sub_key, "--reinit"))
         device_manager_init_imu();
@@ -442,7 +387,7 @@ void ui_debug() {
     }
 
     else {
-        Serial << "\nUngültiger Befehl. Mindestens einer der folgenden Parameter fehlt:\n" <<
+        DualSerial << "\nUngültiger Befehl. Mindestens einer der folgenden Parameter fehlt:\n" <<
                "debug --einzel              - starte einzelne Messung\n" <<
                "      --reinit              - Reinitialisiere den Sensor\n" <<
                "      --reboot              - Neustarten des Geräts\n" <<
@@ -450,15 +395,17 @@ void ui_debug() {
     }
 }
 
+
+
 void ui_serial_comm_handler() {
     // listen for user input
-    if (Serial.available())
+    if (DualSerial.available())
         delay(50); // wait a bit for transfer of all serial data
-    uint8_t rx_available_bytes = Serial.available();
+    uint8_t rx_available_bytes = DualSerial.available();
     if (rx_available_bytes > 0) {
         // import entire string until "\n"
         char rx_user_input[rx_available_bytes];
-        Serial.readBytes(rx_user_input, rx_available_bytes);
+        DualSerial.readBytes(rx_user_input, rx_available_bytes);
 
         // extract first word as command key
         char* rx_command_key = strtok(rx_user_input, " \n");
@@ -486,7 +433,7 @@ void ui_serial_comm_handler() {
             ui_debug();
 
         else if (!strcmp(rx_command_key, "hilfe")) {
-            Serial << "\nListe der verfügbaren Befehle:\n" <<
+            DualSerial << "\nListe der verfügbaren Befehle:\n" <<
                     "konfiguriere -r [Koordinatensystem] --auto         - Kalibrieren des Koordinatensystems. '1' für Gehäusekalibrierung und '2' für Schiffskalibrierung\n" <<
                     "                                    [matrix]       - Manuelles eingeben der Rotationsmatrizen im Format [[x,x,x],[x,x,x],[x,x,x]]\n" <<
                     "             -s ['b' 'h' 'bb' oder 'stb'] [Wert]   - Setzen des eingegebenen Werts als Neigungswinkel-Schwellwert für Bug,\n" <<
@@ -496,25 +443,21 @@ void ui_serial_comm_handler() {
                     "             --extern [Wert]                       - aktiviere/deaktiviere externes Alarmsignal\n" <<
                     "             --filter [Wert]                       - Filterhärte, ein kleinerer Wert verstärkt den Tiefpassfilter und erzeugt mehr Robustheit,\n"
                     "                                                     aber verlangsamt die Reaktionszeit des Geräts. Standardwert: 1.0\n"
-                    "             --wifi                                - konfigurieren des WLAN Netzwerknamens (SSID) und des Passworts\n"
-                    "             --update                              - einmaliges Überprüfen auf Updates\n"
-                    "                      --auto ['1' oder '0']        - Automatisches Überprüfen auf Updates beim Starten ein oder ausschalten\n"
-                    "                      --version [v#.#.#]           - Auf spezifische Version updaten, wenn verfügbar\n\n"
                     "stream [Option]                                    - Starten und Stoppen des Datenstreams über USB mit '--start' oder '--stop'\n\n" <<
                     "modus [Koordinatensystem]                          - Ändern des Ausgabemodus. Modi sind '0' für Sensor-, '1' für Geräte- und '2' für Schiffskoordinatensystem\n\n" <<
                     "speicher [Option]                                  - Zugriff auf gespeicherte Einstellungen über '--alles', zurücksetzen ALLER Einstellungen mit '--löschen'\n\n" <<
-                    "info                                               - Rückgabe der Geräteinformationen wie z.b. der Firmware-Version\n\n";
+                    "info                                               - Rückgabe der Geräteinformationen und Logbuch\n\n";
         }
 
         else {
             // unknown command
-            Serial.println("\nUnbekannter Befehl. Nutzen Sie 'hilfe' um eine Liste aller verfügbaren Befehle und deren Syntax zu erhalten.");
+            DualSerial.println("\nUnbekannter Befehl. Nutzen Sie 'hilfe' um eine Liste aller verfügbaren Befehle und deren Syntax zu erhalten.");
         }
 
         // flush serial buffer
-        Serial.readString();
+        DualSerial.readString();
 
-        Serial << '\n';
+        DualSerial << '\n';
         if (enable_serial_stream)
             delay(1000); // for readability when data stream is active
     }

@@ -35,4 +35,4 @@
 .idea
 CMakeListsPrivate.txt
 cmake-build-*/ 
-
+.vscode

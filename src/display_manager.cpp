@@ -1,16 +1,15 @@
 //
-// Created by koorj on 21.01.2022.
+// Created by Cameloah on 21.01.2022.
 //
 
 #include <Arduino_GFX_Library.h>
 #include <TFT_eSPI.h>
 #include <Free_Fonts.h>
 
-#include "data/bitmap.h"
 #include "display_manager.h"
 #include "device_manager.h"
-#include "module_memory.h"
 #include "tools/loop_timer.h"
+#include "linalg_core.h"
 
 TFT_eSPI tft = TFT_eSPI();  // Invoke custom library
 TFT_eSprite sprite_total = TFT_eSprite(&tft); // Sprite object for needle
@@ -66,11 +65,14 @@ void _draw_ring(int32_t x_center, int32_t y_center, int32_t r_i, int32_t r_o, ui
 }
 
 void _draw_2dframe() {
+    float* threshold_angle_x = static_cast<float*>(config_data.get("th_angle_x"));
+    float* threshold_angle_y = static_cast<float*>(config_data.get("th_angle_y"));
+
     // get max thresholds in x and y aka two half axies of an ellipsoid
-    float threshold_y_max = abs(config_data.threshold_angle_x[0]) > abs(config_data.threshold_angle_x[1]) ? abs(
-            config_data.threshold_angle_x[0]) : abs(config_data.threshold_angle_x[1]);
-    float threshold_x_max = abs(config_data.threshold_angle_y[0]) > abs(config_data.threshold_angle_y[1]) ? abs(
-            config_data.threshold_angle_y[0]) : abs(config_data.threshold_angle_y[1]);
+    float threshold_y_max = abs(threshold_angle_x[0]) > abs(threshold_angle_x[1]) ? abs(
+            threshold_angle_x[0]) : abs(threshold_angle_x[1]);
+    float threshold_x_max = abs(threshold_angle_y[0]) > abs(threshold_angle_y[1]) ? abs(
+            threshold_angle_y[0]) : abs(threshold_angle_y[1]);
 
     // check whether sensor data is outside of ellipsoid
     auto scaled_max_radius = sqrt(pow(angles_x_y[1] / threshold_x_max, 2) + pow(angles_x_y[0] / threshold_y_max, 2));
@@ -80,10 +82,10 @@ void _draw_2dframe() {
         scaled_max_radius = ART_2DFRAME_MAX_RAD;
 
     // calculate threshold marker and dot position
-    int16_t pos_thr_x[2] = {(int16_t) (config_data.threshold_angle_y[0] / threshold_x_max * scaled_max_radius),
-                            (int16_t) (config_data.threshold_angle_y[1] / threshold_x_max * scaled_max_radius)};
-    int16_t pos_thr_y[2] = {(int16_t) (config_data.threshold_angle_x[0] / threshold_y_max * scaled_max_radius),
-                            (int16_t) (config_data.threshold_angle_x[1] / threshold_y_max * scaled_max_radius)};
+    int16_t pos_thr_x[2] = {(int16_t) (threshold_angle_y[0] / threshold_x_max * scaled_max_radius),
+                            (int16_t) (threshold_angle_y[1] / threshold_x_max * scaled_max_radius)};
+    int16_t pos_thr_y[2] = {(int16_t) (threshold_angle_x[0] / threshold_y_max * scaled_max_radius),
+                            (int16_t) (threshold_angle_x[1] / threshold_y_max * scaled_max_radius)};
 
     auto pos_dot_x = (int16_t) map((long) (angles_x_y[1] * 1000), 0, (long) (threshold_x_max * 1000), 0,
                                    (long) scaled_max_radius);
