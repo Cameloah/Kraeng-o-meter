@@ -305,13 +305,15 @@ void calculate_tiltangle_x_y(Matrix<3> data_vector, float* return_buffer) {
     new_angles[1] = -atan2( -1 * c_3_1, sqrt(c_3_2 * c_3_2 + c_3_3 * c_3_3)) * 180 / PI;
 
 
-    device_manager_filter_mavg(new_angles, return_buffer);
-
     // little check for when there is nan reported. reinit IMU then
-    if(isnan(return_buffer[0]) or isnan(return_buffer[1])) {
-        DualSerial.println("NaN! Neustart..");
-        esp_restart();
+    if(isnan(new_angles[0]) or isnan(new_angles[1])) {
+        ram_log_notify(RAM_LOG_ERROR_SYSTEM, "NaN!", true);
+        // we take the last known values
+        new_angles[0] = return_buffer[0];
+        new_angles[1] = return_buffer[1];
     }
+
+    device_manager_filter_mavg(new_angles, return_buffer);
 }
 
 int get_calibration_state() {
